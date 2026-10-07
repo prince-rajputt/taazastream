@@ -60,7 +60,13 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/web/e2e/**/*.ts', 'apps/web/playwright.config.ts', 'apps/web/vite.config.ts'],
+    files: [
+      'apps/web/e2e/**/*.{ts,mjs}',
+      'apps/web/playwright.config.ts',
+      'apps/web/vite.config.ts',
+    ],
     languageOptions: { globals: globals.node },
+    // Playwright fixtures call `use()`, which is not a React hook.
+    rules: { 'react-hooks/rules-of-hooks': 'off', 'no-console': 'off' },
   },
 );
