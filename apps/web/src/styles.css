@@ -1,0 +1,290 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/outfit';
+@import 'tailwindcss';
+
+/*
+ * TaazaStream design tokens.
+ * "Taaza" means fresh: a saffron → coral → rose gradient on a deep ink background.
+ */
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Outfit Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+
+  --color-ink: #08080d;
+  --color-ink-2: #0d0d14;
+  --color-surface: #13131c;
+  --color-surface-2: #1a1a26;
+  --color-surface-3: #232332;
+  --color-line: rgb(255 255 255 / 0.08);
+  --color-line-strong: rgb(255 255 255 / 0.16);
+  --color-fg: #f4f4f7;
+  --color-muted: #a3a3b8;
+  --color-faint: #6e6e85;
+
+  --color-brand-300: #ffb38a;
+  --color-brand-400: #ff8a4c;
+  --color-brand-500: #ff6b35;
+  --color-brand-600: #f04e2a;
+  --color-rose-500: #ff3d7f;
+  --color-ok: #34d399;
+  --color-warn: #fbbf24;
+  --color-bad: #f87171;
+
+  --radius-card: 0.6rem;
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  html {
+    background: var(--color-ink);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
+    scrollbar-color: var(--color-surface-3) transparent;
+  }
+  /* Smart TVs: larger base size, everything scales with rem. */
+  html.tv {
+    font-size: 125%;
+  }
+  body {
+    min-height: 100dvh;
+    background: var(--color-ink);
+    overscroll-behavior-y: none;
+  }
+  ::selection {
+    background: rgb(255 107 53 / 0.35);
+  }
+  /* Highly visible focus for keyboards and TV remotes; hidden for mouse clicks. */
+  :focus-visible {
+    outline: 3px solid var(--color-brand-400);
+    outline-offset: 3px;
+    border-radius: 0.4rem;
+  }
+  button,
+  [role='button'] {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  input,
+  select,
+  textarea {
+    color-scheme: dark;
+  }
+  video::cue {
+    background: rgb(0 0 0 / 0.72);
+    color: #fff;
+    font-family: var(--font-sans);
+    font-size: clamp(1rem, 2.4vw, 2rem);
+    line-height: 1.3;
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.8);
+  }
+}
+
+@utility text-gradient-brand {
+  background-image: linear-gradient(100deg, var(--color-brand-400), var(--color-brand-500) 45%, var(--color-rose-500));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility bg-gradient-brand {
+  background-image: linear-gradient(110deg, var(--color-brand-500), var(--color-rose-500));
+}
+
+@utility glass {
+  background: rgb(19 19 28 / 0.62);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid var(--color-line);
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility skeleton {
+  background: linear-gradient(90deg, var(--color-surface) 0%, var(--color-surface-2) 40%, var(--color-surface) 80%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@utility page-x {
+  padding-inline: max(1rem, env(safe-area-inset-left));
+  @media (width >= 48rem) {
+    padding-inline: 2.5rem;
+  }
+  @media (width >= 96rem) {
+    padding-inline: 4rem;
+  }
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s var(--ease-out-soft) both;
+}
+.animate-rise-in {
+  animation: rise-in 0.6s var(--ease-out-soft) both;
+}
+
+/*
+ * Row card sizing: number of cards visible per row by breakpoint.
+ * Mobile 2–3, tablet 3–5, desktop 5–7 (portrait); landscape cards show fewer.
+ */
+.row-track {
+  --gap: 0.6rem;
+  --per: 2.3;
+  gap: var(--gap);
+}
+.row-track > * {
+  /* Fractional --per leaves a peek of the next card, hinting that the row scrolls. */
+  flex: 0 0 calc((100% - (var(--gap) * (var(--per) - 1))) / var(--per));
+}
+.row-track[data-variant='landscape'],
+.row-track[data-variant='continue'] {
+  --per: 1.5;
+}
+.row-track[data-variant='ranked'] {
+  --per: 1.6;
+}
+@media (width >= 30rem) {
+  .row-track {
+    --per: 3.2;
+  }
+  .row-track[data-variant='landscape'],
+  .row-track[data-variant='continue'] {
+    --per: 2.2;
+  }
+  .row-track[data-variant='ranked'] {
+    --per: 2.3;
+  }
+}
+@media (width >= 48rem) {
+  .row-track {
+    --gap: 0.8rem;
+    --per: 4.2;
+  }
+  .row-track[data-variant='landscape'],
+  .row-track[data-variant='continue'] {
+    --per: 3.2;
+  }
+  .row-track[data-variant='ranked'] {
+    --per: 3.3;
+  }
+}
+@media (width >= 64rem) {
+  .row-track {
+    --per: 5.2;
+  }
+  .row-track[data-variant='landscape'],
+  .row-track[data-variant='continue'] {
+    --per: 4;
+  }
+  .row-track[data-variant='ranked'] {
+    --per: 4.2;
+  }
+}
+@media (width >= 80rem) {
+  .row-track {
+    --per: 6.2;
+  }
+  .row-track[data-variant='landscape'],
+  .row-track[data-variant='continue'] {
+    --per: 4.6;
+  }
+  .row-track[data-variant='ranked'] {
+    --per: 5.2;
+  }
+}
+@media (width >= 110rem) {
+  .row-track {
+    --per: 7.2;
+  }
+  .row-track[data-variant='landscape'],
+  .row-track[data-variant='continue'] {
+    --per: 5.4;
+  }
+  .row-track[data-variant='ranked'] {
+    --per: 6.2;
+  }
+}
+
+/* Range inputs (player + admin). */
+input[type='range'].ts-range {
+  appearance: none;
+  background: transparent;
+  height: 1.25rem;
+}
+input[type='range'].ts-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: linear-gradient(to right, #fff var(--fill, 50%), rgb(255 255 255 / 0.25) var(--fill, 50%));
+}
+input[type='range'].ts-range::-moz-range-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.25);
+}
+input[type='range'].ts-range::-moz-range-progress {
+  height: 4px;
+  border-radius: 9999px;
+  background: #fff;
+}
+input[type='range'].ts-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 9999px;
+  background: #fff;
+}
+input[type='range'].ts-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 9999px;
+  background: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
