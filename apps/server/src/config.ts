@@ -61,6 +61,8 @@ const envSchema = z.object({
     .max(24 * 90)
     .default(24 * 7),
   AUTO_MIGRATE: bool(true),
+  /** Scan all media folders right after startup. */
+  SCAN_ON_START: bool(false),
   MDNS_ENABLED: bool(true),
   SUPABASE_URL: z.string().default(''),
   SUPABASE_ANON_KEY: z.string().default(''),
@@ -99,6 +101,7 @@ export interface AppConfig {
   adminBootstrap: { username: string; password: string } | null;
   sessionTtlMs: number;
   autoMigrate: boolean;
+  scanOnStart: boolean;
   mdnsEnabled: boolean;
   supabase: {
     url: string;
@@ -184,6 +187,7 @@ export function loadConfig(overrides: Partial<Record<keyof Env, string>> = {}): 
         : null,
     sessionTtlMs: env.SESSION_TTL_HOURS * 3600_000,
     autoMigrate: env.AUTO_MIGRATE,
+    scanOnStart: env.SCAN_ON_START,
     mdnsEnabled: env.MDNS_ENABLED,
     supabase: {
       url: env.SUPABASE_URL.replace(/\/+$/, ''),

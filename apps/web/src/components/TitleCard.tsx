@@ -5,7 +5,7 @@ import {
   type TitleCard as Card,
 } from '@taazastream/shared';
 import { Play, X } from 'lucide-react';
-import { Link, useNavigate } from 'react-router';
+import { Link } from 'react-router';
 import { Artwork } from './Artwork';
 
 function metaLine(item: Card): string {
@@ -41,8 +41,6 @@ function ProgressBar({ percent, className = '' }: { percent: number; className?:
 
 /** Portrait (2:3) card used for most rows and grids. */
 export function PosterCard({ item }: { item: Card }) {
-  const navigate = useNavigate();
-  const play = item.kind === 'movie' && item.videoId ? `/watch/${item.videoId}` : null;
   return (
     <div className="group relative">
       <Link
@@ -65,17 +63,13 @@ export function PosterCard({ item }: { item: Card }) {
           />
         )}
       </Link>
-      {play && (
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-hidden="true"
-          onClick={() => navigate(play)}
-          className="absolute top-1/2 left-1/2 hidden h-12 w-12 -translate-x-1/2 -translate-y-1/2 scale-90 items-center justify-center rounded-full bg-white/90 text-black opacity-0 shadow-xl transition duration-300 md:flex md:group-hover:scale-100 md:group-hover:opacity-100"
-        >
-          <Play className="ml-0.5 h-5 w-5 fill-current" />
-        </button>
-      )}
+      {/* Decorative hover cue only: the whole card is one link to the details page. */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute top-[calc(50%-1.5rem)] left-1/2 hidden h-12 w-12 -translate-x-1/2 -translate-y-1/2 scale-90 items-center justify-center rounded-full bg-white/90 text-black opacity-0 shadow-xl transition duration-300 md:flex md:group-hover:scale-100 md:group-hover:opacity-100"
+      >
+        <Play className="ml-0.5 h-5 w-5 fill-current" />
+      </span>
       <div className="mt-2 px-0.5">
         <p className="truncate text-sm font-medium text-fg">{item.title}</p>
         <p className="truncate text-xs text-muted">{metaLine(item) || ' '}</p>

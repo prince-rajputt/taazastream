@@ -63,8 +63,9 @@ export function detectCapabilities(): ClientCapabilities {
       ? 'native'
       : 'none';
 
-  if (!video.includes('h264')) video.push('h264'); // universally supported; some TVs under-report
-  if (!audio.includes('aac')) audio.push('aac');
+  // Some TV browsers report nothing at all; assume the universal baseline in that case only.
+  if (video.length === 0) video.push('h264');
+  if (audio.length === 0) audio.push('aac');
 
   cached = { video, audio, containers, hls };
   return cached;

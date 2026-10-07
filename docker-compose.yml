@@ -1,0 +1,32 @@
+# Optional Docker deployment. Native Windows install (see README) is the recommended setup.
+#   docker compose up -d --build
+# Then open http://SERVER-IP:3000 and add /media/... folders in Admin → Media folders.
+services:
+  taazastream:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: taazastream
+    restart: unless-stopped
+    # Host networking lets phones/TVs on the LAN reach the server and enables mDNS (Linux only).
+    # On Docker Desktop (Windows/macOS) remove this line and keep the "ports" mapping.
+    # network_mode: host
+    ports:
+      - '3000:3000'
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MDNS_ENABLED: 'false'
+    volumes:
+      - taazastream-data:/data
+      - taazastream-cache:/cache
+      # Mount your media read-only. Windows example: - D:/TaazaStream/Movies:/media/movies:ro
+      - ./test-media:/media/sample:ro
+    # Intel/AMD hardware transcoding (Linux): uncomment
+    # devices:
+    #   - /dev/dri:/dev/dri
+
+volumes:
+  taazastream-data:
+  taazastream-cache:

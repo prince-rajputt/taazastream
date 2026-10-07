@@ -58,6 +58,10 @@ async function main() {
     process.stdout.write(`${lines.join('\n')}\n`);
   }
 
+  if (config.scanOnStart && (await ctx.db.mediaFolder.count({ where: { enabled: true } })) > 0) {
+    void ctx.scanner.start({});
+  }
+
   // Housekeeping: auto-scan, expired sessions.
   let lastAutoScan = Date.now();
   const housekeeping = setInterval(() => {

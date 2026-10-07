@@ -1,0 +1,17 @@
+node_modules
+**/node_modules
+**/dist
+**/dev-dist
+data
+cache
+backups
+test-media
+.tmp-*
+.env
+.env.*
+!.env.example
+.git
+playwright-report
+test-results
+coverage
+*.log
