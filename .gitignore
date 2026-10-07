@@ -64,3 +64,6 @@ desktop.ini
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Local scratch
+.tmp-*

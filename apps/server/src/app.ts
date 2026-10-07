@@ -186,8 +186,9 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
     await app.register(fastifyStatic, {
       root: webDist,
       prefix: '/',
-      wildcard: false,
-      index: false,
+      // Serve files dynamically so a rebuilt web app works without restarting the server.
+      wildcard: true,
+      index: ['index.html'],
       etag: true,
       lastModified: true,
       setHeaders(res, filePath) {
@@ -206,6 +207,8 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   app.setNotFoundHandler(async (request, reply) => {
     if (request.url.startsWith('/api/')) return reply.code(404).send(failure('NOT_FOUND', 'Endpoint not found'));
     if (request.method !== 'GET' && request.method !== 'HEAD') return reply.code(404).send(failure('NOT_FOUND', 'Not found'));
+    // Missing static files (e.g. an old hashed bundle) must 404, never fall back to HTML.
+    if (/\.[a-z0-9]{1,8}$/i.test(request.url.split('?')[0]!)) return reply.code(404).type('text/plain').send('Not found');
     if (!hasWeb) {
       return reply
         .code(503)
