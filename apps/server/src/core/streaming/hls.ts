@@ -39,7 +39,9 @@ const IDLE_KILL_MS = 30_000;
 const SEGMENT_WAIT_MS = 60_000;
 
 export function variantId(v: VariantSpec): string {
-  return v.mode === 'transcode' ? `t-${v.quality}-a${v.audioIndex}` : `r-${v.copyAudio ? 'c' : 'e'}-a${v.audioIndex}`;
+  return v.mode === 'transcode'
+    ? `t-${v.quality}-a${v.audioIndex}`
+    : `r-${v.copyAudio ? 'c' : 'e'}-a${v.audioIndex}`;
 }
 
 export function parseVariantId(id: string): VariantSpec | null {
@@ -48,6 +50,14 @@ export function parseVariantId(id: string): VariantSpec | null {
   const audioIndex = Number(m[3]);
   if (m[1]) return { mode: 'transcode', quality: m[1] as '1080p' | '720p' | '480p', audioIndex };
   return { mode: 'remux', copyAudio: m[2] === 'c', audioIndex };
+}
+
+/**
+ * Number of fixed-length segments for a duration. A tail shorter than half a second is folded
+ * into the last segment: FFmpeg would not emit such a sliver, and a player waiting for it stalls.
+ */
+export function segmentCount(durationSec: number, segSeconds: number): number {
+  return Math.max(1, Math.ceil((Math.max(durationSec, 0.1) - 0.5) / segSeconds));
 }
 
 export function isSegmentName(name: string): boolean {
@@ -121,17 +131,29 @@ export class HlsManager {
   }
 
   private sourceTag(src: HlsSource): string {
-    return createHash('sha1').update(`${src.path}|${src.sizeBytes}|${src.mtimeMs}`).digest('hex').slice(0, 10);
+    return createHash('sha1')
+      .update(`${src.path}|${src.sizeBytes}|${src.mtimeMs}`)
+      .digest('hex')
+      .slice(0, 10);
   }
 
   private variantDir(src: HlsSource, v: VariantSpec): string {
-    const segSeconds = v.mode === 'transcode' ? this.settings().hlsSegmentSeconds : REMUX_SEGMENT_SECONDS;
-    return path.join(this.root, `${src.id}_${this.sourceTag(src)}`, `${variantId(v)}-s${segSeconds}`);
+    const segSeconds =
+      v.mode === 'transcode' ? this.settings().hlsSegmentSeconds : REMUX_SEGMENT_SECONDS;
+    return path.join(
+      this.root,
+      `${src.id}_${this.sourceTag(src)}`,
+      `${variantId(v)}-s${segSeconds}`,
+    );
   }
 
   private ensureFfmpeg() {
     if (!this.ffmpeg.ffmpeg.available) {
-      throw new AppError(503, 'TRANSCODER_UNAVAILABLE', 'FFmpeg is not installed on the server; this video cannot be converted');
+      throw new AppError(
+        503,
+        'TRANSCODER_UNAVAILABLE',
+        'FFmpeg is not installed on the server; this video cannot be converted',
+      );
     }
   }
 
@@ -157,7 +179,10 @@ export class HlsManager {
           2_000_000,
           src.durationSec > 0 ? Math.round((src.sizeBytes * 8) / src.durationSec) : 8_000_000,
         );
-        lines.push(`#EXT-X-STREAM-INF:BANDWIDTH=${bandwidth},NAME="original"`, `${variantId(v)}/index.m3u8`);
+        lines.push(
+          `#EXT-X-STREAM-INF:BANDWIDTH=${bandwidth},NAME="original"`,
+          `${variantId(v)}/index.m3u8`,
+        );
       }
     }
     return `${lines.join('\n')}\n`;
@@ -172,31 +197,40 @@ export class HlsManager {
   private transcodePlaylist(src: HlsSource): string {
     const seg = this.settings().hlsSegmentSeconds;
     const duration = Math.max(src.durationSec, 0.1);
-    const count = Math.max(1, Math.ceil(duration / seg - 1e-6));
+    const count = segmentCount(duration, seg);
     const lines = [
       '#EXTM3U',
       '#EXT-X-VERSION:3',
-      `#EXT-X-TARGETDURATION:${seg}`,
+      // +1: the last segment may absorb a short tail (see segmentCount).
+      `#EXT-X-TARGETDURATION:${seg + 1}`,
       '#EXT-X-MEDIA-SEQUENCE:0',
       '#EXT-X-PLAYLIST-TYPE:VOD',
       '#EXT-X-INDEPENDENT-SEGMENTS',
     ];
     for (let i = 0; i < count; i++) {
       const d = i === count - 1 ? duration - seg * (count - 1) : seg;
-      lines.push(`#EXTINF:${Math.max(d, 0.04).toFixed(6)},`, `seg_${String(i).padStart(5, '0')}.ts`);
+      lines.push(
+        `#EXTINF:${Math.max(d, 0.04).toFixed(6)},`,
+        `seg_${String(i).padStart(5, '0')}.ts`,
+      );
     }
     lines.push('#EXT-X-ENDLIST');
     return `${lines.join('\n')}\n`;
   }
 
-  private async remuxPlaylist(src: HlsSource, v: VariantSpec & { mode: 'remux' }, owner: string): Promise<string> {
+  private async remuxPlaylist(
+    src: HlsSource,
+    v: VariantSpec & { mode: 'remux' },
+    owner: string,
+  ): Promise<string> {
     const dir = this.variantDir(src, v);
     const playlist = path.join(dir, 'index.m3u8');
     const key = `remux:${dir}`;
     this.lastAccessByDir.set(path.dirname(dir), Date.now());
 
     let job = this.jobs.get(key);
-    const complete = existsSync(playlist) && (await readFile(playlist, 'utf8')).includes('#EXT-X-ENDLIST');
+    const complete =
+      existsSync(playlist) && (await readFile(playlist, 'utf8')).includes('#EXT-X-ENDLIST');
     if (!complete && (!job || job.exited)) {
       await rm(dir, { recursive: true, force: true });
       job = await this.startRemux(src, v, dir, key, owner);
@@ -210,9 +244,14 @@ export class HlsManager {
         if (/#EXTINF/.test(text) || text.includes('#EXT-X-ENDLIST')) return rewritePlaylist(text);
       }
       if (job?.exited) {
-        if (job.exitCode === 0 && existsSync(playlist)) return rewritePlaylist(await readFile(playlist, 'utf8'));
+        if (job.exitCode === 0 && existsSync(playlist))
+          return rewritePlaylist(await readFile(playlist, 'utf8'));
         this.log.error({ videoId: src.id, err: job.stderr.slice(-500) }, 'remux failed');
-        throw new AppError(500, 'TRANSCODE_FAILED', 'The video could not be prepared for streaming');
+        throw new AppError(
+          500,
+          'TRANSCODE_FAILED',
+          'The video could not be prepared for streaming',
+        );
       }
       await delay(150);
     }
@@ -246,14 +285,16 @@ export class HlsManager {
 
     const index = Number(SEGMENT_RE.exec(fileName)?.[1] ?? NaN);
     const seg = this.settings().hlsSegmentSeconds;
-    const count = Math.max(1, Math.ceil(Math.max(src.durationSec, 0.1) / seg - 1e-6));
+    const count = segmentCount(src.durationSec, seg);
     if (!Number.isInteger(index) || index < 0 || index >= count) {
       throw new AppError(404, 'NOT_FOUND', 'Segment out of range');
     }
 
     const existing = await this.findSegment(dir, index);
     const variantKeyPrefix = `transcode:${dir}:`;
-    const variantJobs = [...this.jobs.values()].filter((j) => j.key.startsWith(variantKeyPrefix) && !j.exited);
+    const variantJobs = [...this.jobs.values()].filter(
+      (j) => j.key.startsWith(variantKeyPrefix) && !j.exited,
+    );
     for (const j of variantJobs) {
       if (j.owner === owner) {
         j.lastAccess = Date.now();
@@ -262,11 +303,19 @@ export class HlsManager {
     }
     if (existing) return existing;
 
-    let job = variantJobs.find((j) => index >= j.startSegment && index <= j.ready + LOOKAHEAD_SEGMENTS);
+    let job = variantJobs.find(
+      (j) => index >= j.startSegment && index <= j.ready + LOOKAHEAD_SEGMENTS,
+    );
     if (!job) {
       // The viewer seeked: stop this viewer's other encoders for the variant, start a new one here.
       for (const j of variantJobs) if (j.owner === owner) this.kill(j, 'seek');
-      job = await this.startTranscode(src, v as VariantSpec & { mode: 'transcode' }, dir, index, owner);
+      job = await this.startTranscode(
+        src,
+        v as VariantSpec & { mode: 'transcode' },
+        dir,
+        index,
+        owner,
+      );
     }
     job.lastAccess = Date.now();
     job.lastRequested = index;
@@ -278,7 +327,10 @@ export class HlsManager {
       if (job.exited) {
         const retry = await this.findSegment(dir, index);
         if (retry) return retry;
-        this.log.error({ videoId: src.id, code: job.exitCode, err: job.stderr.slice(-600) }, 'FFmpeg transcode failed');
+        this.log.error(
+          { videoId: src.id, code: job.exitCode, err: job.stderr.slice(-600) },
+          'FFmpeg transcode failed',
+        );
         throw new AppError(500, 'TRANSCODE_FAILED', 'FFmpeg failed to convert this video');
       }
       await delay(120);
@@ -286,7 +338,11 @@ export class HlsManager {
     throw new AppError(504, 'TRANSCODE_FAILED', 'Timed out waiting for the transcoder');
   }
 
-  private async findSegment(variantDir: string, index: number, preferred?: Job): Promise<string | null> {
+  private async findSegment(
+    variantDir: string,
+    index: number,
+    preferred?: Job,
+  ): Promise<string | null> {
     const name = `seg_${String(index).padStart(5, '0')}.ts`;
     if (preferred) {
       const p = path.join(preferred.dir, name);
@@ -324,34 +380,103 @@ export class HlsManager {
       .sort((a, b) => a.lastAccess - b.lastAccess);
     const victim = candidates[0];
     if (!victim) {
-      throw new AppError(503, 'STREAM_LIMIT', 'The server is busy converting other videos. Try again shortly or choose a direct-play file.');
+      throw new AppError(
+        503,
+        'STREAM_LIMIT',
+        'The server is busy converting other videos. Try again shortly or choose a direct-play file.',
+      );
     }
     this.kill(victim, 'limit');
   }
 
-  private videoEncoderArgs(quality: Exclude<QualityId, 'original'>, srcHeight: number | null): string[] {
+  private videoEncoderArgs(
+    quality: Exclude<QualityId, 'original'>,
+    srcHeight: number | null,
+  ): string[] {
     const s = this.settings();
     const p = QUALITY_PRESETS[quality];
     const seg = s.hlsSegmentSeconds;
     const needsScale = srcHeight == null || srcHeight > p.height;
     const hw = this.hwBroken ? 'none' : s.hardwareAcceleration;
-    const scale = needsScale ? `scale=-2:${p.height}:flags=bicubic` : 'scale=trunc(iw/2)*2:trunc(ih/2)*2';
-    const rate = ['-b:v', `${p.videoKbps}k`, '-maxrate', `${p.maxrateKbps}k`, '-bufsize', `${p.maxrateKbps * 2}k`];
+    const scale = needsScale
+      ? `scale=-2:${p.height}:flags=bicubic`
+      : 'scale=trunc(iw/2)*2:trunc(ih/2)*2';
+    const rate = [
+      '-b:v',
+      `${p.videoKbps}k`,
+      '-maxrate',
+      `${p.maxrateKbps}k`,
+      '-bufsize',
+      `${p.maxrateKbps * 2}k`,
+    ];
     const gop = ['-force_key_frames', `expr:gte(t,n_forced*${seg})`];
     switch (hw) {
       case 'nvenc':
-        return ['-vf', `${scale},format=yuv420p`, '-c:v', 'h264_nvenc', '-preset', 'p4', '-rc', 'vbr', ...rate, '-profile:v', 'high', '-forced-idr', '1', ...gop];
+        return [
+          '-vf',
+          `${scale},format=yuv420p`,
+          '-c:v',
+          'h264_nvenc',
+          '-preset',
+          'p4',
+          '-rc',
+          'vbr',
+          ...rate,
+          '-profile:v',
+          'high',
+          '-forced-idr',
+          '1',
+          ...gop,
+        ];
       case 'qsv':
-        return ['-vf', `${scale},format=nv12`, '-c:v', 'h264_qsv', '-preset', 'veryfast', ...rate, '-profile:v', 'high', ...gop];
+        return [
+          '-vf',
+          `${scale},format=nv12`,
+          '-c:v',
+          'h264_qsv',
+          '-preset',
+          'veryfast',
+          ...rate,
+          '-profile:v',
+          'high',
+          ...gop,
+        ];
       case 'amf':
-        return ['-vf', `${scale},format=yuv420p`, '-c:v', 'h264_amf', '-quality', 'speed', '-rc', 'vbr_peak', ...rate, ...gop];
+        return [
+          '-vf',
+          `${scale},format=yuv420p`,
+          '-c:v',
+          'h264_amf',
+          '-quality',
+          'speed',
+          '-rc',
+          'vbr_peak',
+          ...rate,
+          ...gop,
+        ];
       default:
         return [
-          '-vf', `${scale},format=yuv420p`,
-          '-c:v', 'libx264', '-preset', s.transcodePreset, '-profile:v', 'high', '-level:v', '4.1',
-          '-crf', '21', ...rate, '-sc_threshold', '0', ...gop,
+          '-vf',
+          `${scale},format=yuv420p`,
+          '-c:v',
+          'libx264',
+          '-preset',
+          s.transcodePreset,
+          '-profile:v',
+          'high',
+          '-level:v',
+          '4.1',
+          '-crf',
+          '21',
+          ...rate,
+          '-sc_threshold',
+          '0',
+          ...gop,
           // Keep each encoder modest so several viewers can share the CPU.
-          '-threads', '0', '-x264-params', 'rc-lookahead=20',
+          '-threads',
+          '0',
+          '-x264-params',
+          'rc-lookahead=20',
         ];
     }
   }
@@ -371,31 +496,66 @@ export class HlsManager {
     const preset = QUALITY_PRESETS[v.quality];
     const args = [
       ...(startSec > 0 ? ['-ss', startSec.toFixed(3)] : []),
-      '-i', src.path,
-      '-map', '0:v:0', '-map', `0:a:${v.audioIndex}?`,
-      '-sn', '-dn', '-map_metadata', '-1', '-map_chapters', '-1',
+      '-i',
+      src.path,
+      '-map',
+      '0:v:0',
+      '-map',
+      `0:a:${v.audioIndex}?`,
+      '-sn',
+      '-dn',
+      '-map_metadata',
+      '-1',
+      '-map_chapters',
+      '-1',
       ...this.videoEncoderArgs(v.quality, src.height),
-      '-c:a', 'aac', '-ac', '2', '-ar', '48000', '-b:a', `${preset.audioKbps}k`,
-      '-max_muxing_queue_size', '4096',
-      '-f', 'hls',
-      '-hls_time', String(seg),
-      '-hls_list_size', '0',
-      '-hls_segment_type', 'mpegts',
-      '-start_number', String(startSegment),
-      '-hls_flags', 'independent_segments+temp_file',
-      '-hls_segment_filename', 'seg_%05d.ts',
-      '-output_ts_offset', startSec.toFixed(3),
+      '-c:a',
+      'aac',
+      '-ac',
+      '2',
+      '-ar',
+      '48000',
+      '-b:a',
+      `${preset.audioKbps}k`,
+      '-max_muxing_queue_size',
+      '4096',
+      '-f',
+      'hls',
+      '-hls_time',
+      String(seg),
+      '-hls_list_size',
+      '0',
+      '-hls_segment_type',
+      'mpegts',
+      '-start_number',
+      String(startSegment),
+      '-hls_flags',
+      'independent_segments+temp_file',
+      '-hls_segment_filename',
+      'seg_%05d.ts',
+      '-output_ts_offset',
+      startSec.toFixed(3),
       'ffmpeg.m3u8',
     ];
     const key = `transcode:${variantDir}:${startSegment}:${randomBytes(2).toString('hex')}`;
     const job = this.spawnJob('transcode', key, jobDir, args, startSegment, owner);
-    this.log.info({ videoId: src.id, quality: v.quality, startSegment, hw: this.hwBroken ? 'none' : this.settings().hardwareAcceleration }, 'FFmpeg transcode started');
+    this.log.info(
+      {
+        videoId: src.id,
+        quality: v.quality,
+        startSegment,
+        hw: this.hwBroken ? 'none' : this.settings().hardwareAcceleration,
+      },
+      'FFmpeg transcode started',
+    );
 
     // Hardware encoders can be listed but unusable (no GPU / driver): fall back to x264 once.
     job.proc.once('exit', (code) => {
       const hw = this.settings().hardwareAcceleration;
       const killedByUs = job.stderr.includes('[killed:');
-      const producedNothing = !existsSync(path.join(jobDir, `seg_${String(startSegment).padStart(5, '0')}.ts`));
+      const producedNothing = !existsSync(
+        path.join(jobDir, `seg_${String(startSegment).padStart(5, '0')}.ts`),
+      );
       if (code !== 0 && !killedByUs && producedNothing && !this.hwBroken && hw !== 'none') {
         this.hwBroken = true;
         this.log.warn({ hw }, 'hardware encoder failed; falling back to software (libx264)');
@@ -404,25 +564,52 @@ export class HlsManager {
     return job;
   }
 
-  private async startRemux(src: HlsSource, v: VariantSpec & { mode: 'remux' }, dir: string, key: string, owner: string): Promise<Job> {
+  private async startRemux(
+    src: HlsSource,
+    v: VariantSpec & { mode: 'remux' },
+    dir: string,
+    key: string,
+    owner: string,
+  ): Promise<Job> {
     await mkdir(dir, { recursive: true });
     const vcodec = normalizeCodec(src.videoCodec);
     const fmp4 = vcodec === 'hevc' || vcodec === 'av1' || vcodec === 'vp9';
     const args = [
-      '-i', src.path,
-      '-map', '0:v:0', '-map', `0:a:${v.audioIndex}?`,
-      '-sn', '-dn', '-map_metadata', '-1', '-map_chapters', '-1',
-      '-c:v', 'copy',
+      '-i',
+      src.path,
+      '-map',
+      '0:v:0',
+      '-map',
+      `0:a:${v.audioIndex}?`,
+      '-sn',
+      '-dn',
+      '-map_metadata',
+      '-1',
+      '-map_chapters',
+      '-1',
+      '-c:v',
+      'copy',
       ...(vcodec === 'hevc' ? ['-tag:v', 'hvc1'] : []),
-      ...(v.copyAudio ? ['-c:a', 'copy'] : ['-c:a', 'aac', '-ac', '2', '-ar', '48000', '-b:a', '192k']),
-      '-max_muxing_queue_size', '4096',
-      '-f', 'hls',
-      '-hls_time', String(REMUX_SEGMENT_SECONDS),
-      '-hls_list_size', '0',
-      '-hls_playlist_type', 'event',
-      ...(fmp4 ? ['-hls_segment_type', 'fmp4', '-hls_fmp4_init_filename', 'init.mp4'] : ['-hls_segment_type', 'mpegts']),
-      '-hls_flags', 'independent_segments+temp_file',
-      '-hls_segment_filename', fmp4 ? 'seg_%05d.m4s' : 'seg_%05d.ts',
+      ...(v.copyAudio
+        ? ['-c:a', 'copy']
+        : ['-c:a', 'aac', '-ac', '2', '-ar', '48000', '-b:a', '192k']),
+      '-max_muxing_queue_size',
+      '4096',
+      '-f',
+      'hls',
+      '-hls_time',
+      String(REMUX_SEGMENT_SECONDS),
+      '-hls_list_size',
+      '0',
+      '-hls_playlist_type',
+      'event',
+      ...(fmp4
+        ? ['-hls_segment_type', 'fmp4', '-hls_fmp4_init_filename', 'init.mp4']
+        : ['-hls_segment_type', 'mpegts']),
+      '-hls_flags',
+      'independent_segments+temp_file',
+      '-hls_segment_filename',
+      fmp4 ? 'seg_%05d.m4s' : 'seg_%05d.ts',
       'index.m3u8',
     ];
     const job = this.spawnJob('remux', key, dir, args, 0, owner);
@@ -430,7 +617,14 @@ export class HlsManager {
     return job;
   }
 
-  private spawnJob(kind: Job['kind'], key: string, dir: string, args: string[], startSegment: number, owner: string): Job {
+  private spawnJob(
+    kind: Job['kind'],
+    key: string,
+    dir: string,
+    args: string[],
+    startSegment: number,
+    owner: string,
+  ): Job {
     const proc = this.ffmpeg.spawnIn(args, dir);
     const job: Job = {
       id: randomBytes(4).toString('hex'),
@@ -461,9 +655,12 @@ export class HlsManager {
         this.log.warn({ kind, code, err: job.stderr.slice(-300) }, 'FFmpeg exited with an error');
       }
       // Keep exited remux jobs briefly so waiting requests see the result; drop transcode jobs.
-      setTimeout(() => {
-        if (this.jobs.get(key) === job) this.jobs.delete(key);
-      }, kind === 'remux' ? 60_000 : 1_000).unref();
+      setTimeout(
+        () => {
+          if (this.jobs.get(key) === job) this.jobs.delete(key);
+        },
+        kind === 'remux' ? 60_000 : 1_000,
+      ).unref();
     });
     this.jobs.set(key, job);
     return job;
@@ -490,16 +687,20 @@ export class HlsManager {
     const now = Date.now();
     for (const job of this.jobs.values()) {
       if (job.exited) continue;
-      if (now - job.lastAccess > IDLE_KILL_MS * (job.kind === 'remux' ? 2 : 1)) this.kill(job, 'idle');
+      if (now - job.lastAccess > IDLE_KILL_MS * (job.kind === 'remux' ? 2 : 1))
+        this.kill(job, 'idle');
       else if (job.kind === 'transcode') {
         // Track progress cheaply and pause runaway encoders far ahead of the viewer.
-        while (existsSync(path.join(job.dir, `seg_${String(job.ready + 1).padStart(5, '0')}.ts`))) job.ready++;
+        while (existsSync(path.join(job.dir, `seg_${String(job.ready + 1).padStart(5, '0')}.ts`)))
+          job.ready++;
         if (job.ready - job.lastRequested > MAX_AHEAD_SEGMENTS) this.kill(job, 'ahead');
       }
     }
     if (now - this.lastPrune > 10 * 60_000) {
       this.lastPrune = now;
-      await this.pruneCache().catch((err) => this.log.warn({ err: (err as Error).message }, 'HLS cache prune failed'));
+      await this.pruneCache().catch((err) =>
+        this.log.warn({ err: (err as Error).message }, 'HLS cache prune failed'),
+      );
     }
   }
 
@@ -517,7 +718,11 @@ export class HlsManager {
       if (busy) continue;
       const st = await stat(dir).catch(() => null);
       if (!st?.isDirectory()) continue;
-      entries.push({ dir, size: await dirSize(dir), at: this.lastAccessByDir.get(dir) ?? st.mtimeMs });
+      entries.push({
+        dir,
+        size: await dirSize(dir),
+        at: this.lastAccessByDir.get(dir) ?? st.mtimeMs,
+      });
     }
     let total = entries.reduce((s, e) => s + e.size, 0);
     entries = entries.sort((a, b) => a.at - b.at);
@@ -546,7 +751,8 @@ function rewritePlaylist(text: string): string {
     .split(/\r?\n/)
     .map((line) => {
       if (!line) return line;
-      if (line.startsWith('#EXT-X-MAP:')) return line.replace(/URI="([^"]+)"/, (_, u: string) => `URI="${path.basename(u)}"`);
+      if (line.startsWith('#EXT-X-MAP:'))
+        return line.replace(/URI="([^"]+)"/, (_, u: string) => `URI="${path.basename(u)}"`);
       if (line.startsWith('#')) return line;
       return path.basename(line.trim());
     })

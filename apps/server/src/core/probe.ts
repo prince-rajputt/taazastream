@@ -67,7 +67,17 @@ interface RawProbe {
   };
 }
 
-const TEXT_SUBTITLE_CODECS = new Set(['subrip', 'srt', 'ass', 'ssa', 'webvtt', 'mov_text', 'text', 'microdvd', 'subviewer']);
+const TEXT_SUBTITLE_CODECS = new Set([
+  'subrip',
+  'srt',
+  'ass',
+  'ssa',
+  'webvtt',
+  'mov_text',
+  'text',
+  'microdvd',
+  'subviewer',
+]);
 
 function num(v: unknown): number | null {
   const n = typeof v === 'string' ? Number.parseFloat(v) : typeof v === 'number' ? v : NaN;
@@ -107,7 +117,11 @@ export function parseProbe(json: unknown): MediaProbe {
   const raw = (json ?? {}) as RawProbe;
   const streams = raw.streams ?? [];
   const video = streams.find(
-    (s) => s.codec_type === 'video' && !s.disposition?.attached_pic && s.codec_name !== 'mjpeg' && s.codec_name !== 'png',
+    (s) =>
+      s.codec_type === 'video' &&
+      !s.disposition?.attached_pic &&
+      s.codec_name !== 'mjpeg' &&
+      s.codec_name !== 'png',
   );
 
   let audioIdx = 0;

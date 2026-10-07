@@ -26,7 +26,12 @@ function headers(extra?: HeadersInit): Headers {
   return h;
 }
 
-async function request<T>(method: string, url: string, body?: unknown, init: RequestInit = {}): Promise<T> {
+async function request<T>(
+  method: string,
+  url: string,
+  body?: unknown,
+  init: RequestInit = {},
+): Promise<T> {
   const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
   const h = headers(init.headers);
   if (body !== undefined && !isForm) h.set('content-type', 'application/json');
@@ -40,7 +45,11 @@ async function request<T>(method: string, url: string, body?: unknown, init: Req
       body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
     });
   } catch {
-    throw new ApiError(0, 'NETWORK', 'Cannot reach the TaazaStream server. Check that you are on the same Wi-Fi and the server is running.');
+    throw new ApiError(
+      0,
+      'NETWORK',
+      'Cannot reach the TaazaStream server. Check that you are on the same Wi-Fi and the server is running.',
+    );
   }
   let json: ApiResponse<T> | null = null;
   try {
@@ -48,8 +57,10 @@ async function request<T>(method: string, url: string, body?: unknown, init: Req
   } catch {
     json = null;
   }
-  if (!json) throw new ApiError(res.status, 'INTERNAL_ERROR', `Unexpected response (${res.status})`);
-  if (!json.ok) throw new ApiError(res.status, json.error.code, json.error.message, json.error.details);
+  if (!json)
+    throw new ApiError(res.status, 'INTERNAL_ERROR', `Unexpected response (${res.status})`);
+  if (!json.ok)
+    throw new ApiError(res.status, json.error.code, json.error.message, json.error.details);
   return json.data;
 }
 
@@ -78,7 +89,8 @@ export function beacon(url: string, body: unknown) {
 
 export function qs(params: Record<string, string | number | boolean | null | undefined>): string {
   const s = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== '') s.set(k, String(v));
+  for (const [k, v] of Object.entries(params))
+    if (v !== undefined && v !== null && v !== '') s.set(k, String(v));
   const out = s.toString();
   return out ? `?${out}` : '';
 }

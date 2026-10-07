@@ -53,6 +53,10 @@ export const usePrefs = create<Prefs>()(
 );
 
 /** Smart TV browsers announce themselves in the user agent. */
-export function looksLikeTv(ua = typeof navigator === 'undefined' ? '' : navigator.userAgent): boolean {
-  return /smart-?tv|smarttv|tizen|web0s|webos|netcast|bravia|hbbtv|aft[a-z]|crkey|android tv|googletv|vidaa/i.test(ua);
+export function looksLikeTv(
+  ua = typeof navigator === 'undefined' ? '' : navigator.userAgent,
+): boolean {
+  return /smart-?tv|smarttv|tizen|web0s|webos|netcast|bravia|hbbtv|aft[a-z]|crkey|android tv|googletv|vidaa/i.test(
+    ua,
+  );
 }

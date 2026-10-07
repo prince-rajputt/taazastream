@@ -12,7 +12,13 @@ export function LogoMark({ className = 'h-8 w-8' }: { className?: string }) {
         d="M18 14.5c0-2.6 2.8-4.2 5.1-2.8l26.2 15.9c2.2 1.4 2.2 4.6 0 6L23.1 49.5c-2.3 1.4-5.1-.2-5.1-2.8Z"
         fill="url(#ts-logo-g)"
       />
-      <path d="M18 31.5c7-8 17.5-10.4 28-7.6" stroke="#08080d" strokeWidth="3.4" fill="none" strokeLinecap="round" />
+      <path
+        d="M18 31.5c7-8 17.5-10.4 28-7.6"
+        stroke="#08080d"
+        strokeWidth="3.4"
+        fill="none"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }

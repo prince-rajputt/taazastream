@@ -2,6 +2,7 @@
   "name": "taazastream",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "TaazaStream — private, offline-first LAN video streaming platform.",
   "license": "MIT",
   "packageManager": "pnpm@10.34.6",

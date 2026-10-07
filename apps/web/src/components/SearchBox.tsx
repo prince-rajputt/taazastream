@@ -6,7 +6,15 @@ import { useSuggestions } from '../lib/queries';
 import { hrefFor } from './TitleCard';
 
 /** Header search with instant local suggestions (SQLite FTS on the server, works offline). */
-export function SearchBox({ initial = '', autoFocus = false, onDone }: { initial?: string; autoFocus?: boolean; onDone?: () => void }) {
+export function SearchBox({
+  initial = '',
+  autoFocus = false,
+  onDone,
+}: {
+  initial?: string;
+  autoFocus?: boolean;
+  onDone?: () => void;
+}) {
   const [value, setValue] = useState(initial);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
@@ -78,16 +86,30 @@ export function SearchBox({ initial = '', autoFocus = false, onDone }: { initial
             aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
           />
           {value && (
-            <button type="button" aria-label="Clear search" onClick={() => setValue('')} className="text-muted hover:text-fg">
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setValue('')}
+              className="text-muted hover:text-fg"
+            >
               <X className="h-4 w-4" />
             </button>
           )}
         </label>
       </form>
       {show && (
-        <ul id={listId} role="listbox" className="glass absolute top-12 right-0 left-0 z-50 overflow-hidden rounded-2xl py-1.5 shadow-2xl shadow-black/60 animate-fade-in">
+        <ul
+          id={listId}
+          role="listbox"
+          className="glass absolute top-12 right-0 left-0 z-50 overflow-hidden rounded-2xl py-1.5 shadow-2xl shadow-black/60 animate-fade-in"
+        >
           {suggestions.map((s, i) => (
-            <li key={`${s.kind}-${s.id}`} id={`${listId}-${i}`} role="option" aria-selected={i === active}>
+            <li
+              key={`${s.kind}-${s.id}`}
+              id={`${listId}-${i}`}
+              role="option"
+              aria-selected={i === active}
+            >
               <button
                 type="button"
                 onMouseEnter={() => setActive(i)}
@@ -98,8 +120,18 @@ export function SearchBox({ initial = '', autoFocus = false, onDone }: { initial
                 }}
                 className={`flex w-full items-center gap-3 px-3 py-2 text-left transition ${i === active ? 'bg-white/10' : ''}`}
               >
-                <span className="h-12 w-8 shrink-0 overflow-hidden rounded" style={{ background: s.accent }}>
-                  {s.posterUrl && <img src={s.posterUrl} alt="" loading="lazy" className="h-full w-full object-cover" />}
+                <span
+                  className="h-12 w-8 shrink-0 overflow-hidden rounded"
+                  style={{ background: s.accent }}
+                >
+                  {s.posterUrl && (
+                    <img
+                      src={s.posterUrl}
+                      alt=""
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                    />
+                  )}
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium">{s.title}</span>
@@ -112,7 +144,11 @@ export function SearchBox({ initial = '', autoFocus = false, onDone }: { initial
             </li>
           ))}
           <li>
-            <button type="button" onClick={() => submit(value)} className="w-full border-t border-line px-3 py-2.5 text-left text-sm text-brand-300 hover:bg-white/5">
+            <button
+              type="button"
+              onClick={() => submit(value)}
+              className="w-full border-t border-line px-3 py-2.5 text-left text-sm text-brand-300 hover:bg-white/5"
+            >
               See all results for “{value.trim()}”
             </button>
           </li>

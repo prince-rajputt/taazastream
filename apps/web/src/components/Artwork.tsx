@@ -18,7 +18,15 @@ interface ArtworkProps {
  * Lazy-loading artwork with a fade-in and a generated, on-brand placeholder.
  * Every image is served by the local server (WebP); nothing is fetched from the internet.
  */
-export function Artwork({ src, alt, accent, className = '', title, priority, designed }: ArtworkProps) {
+export function Artwork({
+  src,
+  alt,
+  accent,
+  className = '',
+  title,
+  priority,
+  designed,
+}: ArtworkProps) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const showImg = !!src && !failed;

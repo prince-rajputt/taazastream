@@ -41,8 +41,14 @@ const targets = [
 ];
 for (const [file, size, maskable] of targets) {
   await page.setViewportSize({ width: size, height: size });
-  await page.setContent(`<html><body style="margin:0;background:transparent">${mark(maskable).replace('width="512" height="512"', `width="${size}" height="${size}"`)}</body></html>`);
-  await page.screenshot({ path: path.join(out, file), omitBackground: !maskable, clip: { x: 0, y: 0, width: size, height: size } });
+  await page.setContent(
+    `<html><body style="margin:0;background:transparent">${mark(maskable).replace('width="512" height="512"', `width="${size}" height="${size}"`)}</body></html>`,
+  );
+  await page.screenshot({
+    path: path.join(out, file),
+    omitBackground: !maskable,
+    clip: { x: 0, y: 0, width: size, height: size },
+  });
   console.log('  wrote', file);
 }
 await browser.close();

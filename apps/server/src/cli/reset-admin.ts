@@ -26,7 +26,9 @@ if (existing) {
   await db.adminSession.deleteMany({ where: { userId: existing.id } });
   process.stdout.write(`Password updated for admin "${name}". All sessions were signed out.\n`);
 } else {
-  await db.user.create({ data: { username: name, passwordHash, role: 'ADMIN', displayName: username } });
+  await db.user.create({
+    data: { username: name, passwordHash, role: 'ADMIN', displayName: username },
+  });
   process.stdout.write(`Admin "${name}" created.\n`);
 }
 await database.close();

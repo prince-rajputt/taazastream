@@ -19,7 +19,12 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../context';
 import { LocalImageServer } from '../core/images';
-import { isSegmentName, parseVariantId, type HlsSource, type VariantSpec } from '../core/streaming/hls';
+import {
+  isSegmentName,
+  parseVariantId,
+  type HlsSource,
+  type VariantSpec,
+} from '../core/streaming/hls';
 import { StreamTracker } from '../core/streaming/tracker';
 import { AppError, notFound, ok } from '../http/errors';
 import { parse } from '../http/validate';
@@ -58,7 +63,13 @@ class VideoCache {
   }
 }
 
-function titleOf(v: VideoRow): { title: string; subtitle: string | null; titleId: string; kind: 'movie' | 'series'; backdrop: string | null } {
+function titleOf(v: VideoRow): {
+  title: string;
+  subtitle: string | null;
+  titleId: string;
+  kind: 'movie' | 'series';
+  backdrop: string | null;
+} {
   if (v.episode) {
     return {
       title: v.episode.series.title,
@@ -68,7 +79,13 @@ function titleOf(v: VideoRow): { title: string; subtitle: string | null; titleId
       backdrop: v.episode.thumbImage ?? v.episode.series.backdropImage ?? v.thumbImage,
     };
   }
-  return { title: v.movie?.title ?? v.fileName, subtitle: null, titleId: v.movie?.id ?? '', kind: 'movie', backdrop: v.movie?.backdropImage ?? v.thumbImage };
+  return {
+    title: v.movie?.title ?? v.fileName,
+    subtitle: null,
+    titleId: v.movie?.id ?? '',
+    kind: 'movie',
+    backdrop: v.movie?.backdropImage ?? v.thumbImage,
+  };
 }
 
 function hlsSource(v: VideoRow): HlsSource {
@@ -101,7 +118,8 @@ export function registerPlaybackRoutes(app: FastifyInstance, ctx: AppContext) {
       v = row;
       cache.set(id, v);
     }
-    if (v.missing && !opts.allowMissing) throw new AppError(404, 'MEDIA_MISSING', 'This video file is missing from the server disk');
+    if (v.missing && !opts.allowMissing)
+      throw new AppError(404, 'MEDIA_MISSING', 'This video file is missing from the server disk');
     return v;
   }
 
@@ -110,11 +128,20 @@ export function registerPlaybackRoutes(app: FastifyInstance, ctx: AppContext) {
     const { videoId } = parse(videoIdParamsSchema, request.params);
     const q = parse(playbackQuerySchema, request.query);
     const v = await loadVideo(videoId);
-    if (v.probeError) throw new AppError(422, 'MEDIA_UNREADABLE', 'This video file appears to be corrupted or unsupported');
+    if (v.probeError)
+      throw new AppError(
+        422,
+        'MEDIA_UNREADABLE',
+        'This video file appears to be corrupted or unsupported',
+      );
 
     const caps = q.caps ? decodeCapabilities(q.caps) : BASELINE_CAPABILITIES;
-    const defaultAudioIndex = Math.max(0, v.audioTracks.findIndex((a) => a.isDefault));
-    const audioIndex = q.audio != null && q.audio < v.audioTracks.length ? q.audio : defaultAudioIndex;
+    const defaultAudioIndex = Math.max(
+      0,
+      v.audioTracks.findIndex((a) => a.isDefault),
+    );
+    const audioIndex =
+      q.audio != null && q.audio < v.audioTracks.length ? q.audio : defaultAudioIndex;
     const quality: QualityId = q.quality ?? ctx.settings.get().defaultQuality;
     let decision = decidePlayback(
       {
@@ -129,7 +156,12 @@ export function registerPlaybackRoutes(app: FastifyInstance, ctx: AppContext) {
       { quality, audioIndex },
     );
     if (decision.mode !== 'direct' && !ctx.ffmpeg.ffmpeg.available) {
-      decision = { mode: 'direct', reason: 'Direct play (FFmpeg not installed on server — conversion unavailable)', copyAudio: true, quality: 'original' };
+      decision = {
+        mode: 'direct',
+        reason: 'Direct play (FFmpeg not installed on server — conversion unavailable)',
+        copyAudio: true,
+        quality: 'original',
+      };
     }
 
     let url = `/api/stream/${v.id}`;
@@ -154,9 +186,17 @@ export function registerPlaybackRoutes(app: FastifyInstance, ctx: AppContext) {
       backdropUrl: LocalImageServer.urlFor(t.backdrop),
       qualities: qualityOptionsFor(v.height),
       quality: decision.quality,
-      audioTracks: v.audioTracks.map((a) => ({ index: a.index, codec: a.codec, language: a.language, title: a.title, channels: a.channels, isDefault: a.isDefault })),
+      audioTracks: v.audioTracks.map((a) => ({
+        index: a.index,
+        codec: a.codec,
+        language: a.language,
+        title: a.title,
+        channels: a.channels,
+        isDefault: a.isDefault,
+      })),
       audioIndex,
-      subtitles: ctx.catalog.videoInfo({ ...v, audioTracks: v.audioTracks, subtitles: v.subtitles }).subtitles,
+      subtitles: ctx.catalog.videoInfo({ ...v, audioTracks: v.audioTracks, subtitles: v.subtitles })
+        .subtitles,
       next: next
         ? {
             episodeId: next.episode.id,
@@ -201,15 +241,29 @@ export function registerPlaybackRoutes(app: FastifyInstance, ctx: AppContext) {
     const { videoId } = parse(videoIdParamsSchema, request.params);
     const q = parse(masterQuery, request.query);
     const v = await loadVideo(videoId);
-    if (!ctx.ffmpeg.ffmpeg.available) throw new AppError(503, 'TRANSCODER_UNAVAILABLE', 'FFmpeg is not installed on the server');
-    const audioIndex = q.audio != null && q.audio < v.audioTracks.length ? q.audio : Math.max(0, v.audioTracks.findIndex((a) => a.isDefault));
+    if (!ctx.ffmpeg.ffmpeg.available)
+      throw new AppError(503, 'TRANSCODER_UNAVAILABLE', 'FFmpeg is not installed on the server');
+    const audioIndex =
+      q.audio != null && q.audio < v.audioTracks.length
+        ? q.audio
+        : Math.max(
+            0,
+            v.audioTracks.findIndex((a) => a.isDefault),
+          );
 
     // Without an explicit mode, apply the same rules as /api/playback for a baseline browser.
     let mode: Exclude<PlaybackMode, 'direct'> = q.mode ?? 'transcode';
     let copyAudio = q.copy === '1';
     if (!q.mode) {
       const d = decidePlayback(
-        { container: v.container, videoCodec: v.videoCodec, bitDepth: v.bitDepth, height: v.height, audioCodecs: v.audioTracks.map((a) => a.codec), defaultAudioIndex: audioIndex },
+        {
+          container: v.container,
+          videoCodec: v.videoCodec,
+          bitDepth: v.bitDepth,
+          height: v.height,
+          audioCodecs: v.audioTracks.map((a) => a.codec),
+          defaultAudioIndex: audioIndex,
+        },
         { ...BASELINE_CAPABILITIES, containers: [] },
         { quality: q.quality ?? 'original', audioIndex },
       );
@@ -224,9 +278,16 @@ export function registerPlaybackRoutes(app: FastifyInstance, ctx: AppContext) {
       const ladder = (Object.keys(QUALITY_PRESETS) as (keyof typeof QUALITY_PRESETS)[]).filter(
         (k) => v.height == null || QUALITY_PRESETS[k].height <= Math.max(v.height + 8, 480),
       );
-      const start = q.quality && q.quality !== 'original' && ladder.includes(q.quality) ? q.quality : ladder[0]!;
+      const start =
+        q.quality && q.quality !== 'original' && ladder.includes(q.quality)
+          ? q.quality
+          : ladder[0]!;
       // The requested quality first: players start with the first listed variant.
-      variants = [start, ...ladder.filter((k) => k !== start)].map((quality) => ({ mode: 'transcode' as const, quality, audioIndex }));
+      variants = [start, ...ladder.filter((k) => k !== start)].map((quality) => ({
+        mode: 'transcode' as const,
+        quality,
+        audioIndex,
+      }));
     }
     reply.header('Content-Type', M3U8).header('Cache-Control', 'no-cache');
     return reply.send(ctx.hls.masterPlaylist(hlsSource(v), variants));
@@ -239,7 +300,8 @@ export function registerPlaybackRoutes(app: FastifyInstance, ctx: AppContext) {
     const spec = parseVariantId(variant);
     if (!spec) throw new AppError(400, 'BAD_REQUEST', 'Invalid variant');
     const v = await loadVideo(videoId);
-    if (spec.audioIndex > 0 && spec.audioIndex >= v.audioTracks.length) throw new AppError(400, 'BAD_REQUEST', 'Invalid audio track');
+    if (spec.audioIndex > 0 && spec.audioIndex >= v.audioTracks.length)
+      throw new AppError(400, 'BAD_REQUEST', 'Invalid audio track');
     const t = titleOf(v);
     ctx.tracker.record({
       ip: request.ip,
@@ -256,7 +318,10 @@ export function registerPlaybackRoutes(app: FastifyInstance, ctx: AppContext) {
   });
 
   app.get('/api/hls/:videoId/:variant/:file', async (request, reply) => {
-    const { videoId, variant, file } = parse(variantParams.extend({ file: z.string().max(32) }), request.params);
+    const { videoId, variant, file } = parse(
+      variantParams.extend({ file: z.string().max(32) }),
+      request.params,
+    );
     const spec = parseVariantId(variant);
     if (!spec || !isSegmentName(file)) throw new AppError(400, 'BAD_REQUEST', 'Invalid segment');
     const v = await loadVideo(videoId);
@@ -264,8 +329,15 @@ export function registerPlaybackRoutes(app: FastifyInstance, ctx: AppContext) {
     const ip = request.ip;
     const ua = request.headers['user-agent'];
     const streamKey = StreamTracker.key(ip, ua, v.id);
-    if (!ctx.tracker.isActive(streamKey) && ctx.tracker.activeCount(streamKey) >= ctx.settings.get().maxStreams) {
-      throw new AppError(503, 'STREAM_LIMIT', 'The server is busy: maximum number of simultaneous streams reached');
+    if (
+      !ctx.tracker.isActive(streamKey) &&
+      ctx.tracker.activeCount(streamKey) >= ctx.settings.get().maxStreams
+    ) {
+      throw new AppError(
+        503,
+        'STREAM_LIMIT',
+        'The server is busy: maximum number of simultaneous streams reached',
+      );
     }
     const segPath = await ctx.hls.segment(hlsSource(v), spec, file, ownerOf(request));
     const st = await stat(segPath);
@@ -278,8 +350,15 @@ export function registerPlaybackRoutes(app: FastifyInstance, ctx: AppContext) {
       quality: spec.mode === 'transcode' ? spec.quality : 'original',
       bytes: st.size,
     });
-    const type = file.endsWith('.ts') ? 'video/mp2t' : file.endsWith('.m4s') ? 'video/iso.segment' : 'video/mp4';
-    reply.header('Content-Type', type).header('Content-Length', String(st.size)).header('Cache-Control', 'private, max-age=3600');
+    const type = file.endsWith('.ts')
+      ? 'video/mp2t'
+      : file.endsWith('.m4s')
+        ? 'video/iso.segment'
+        : 'video/mp4';
+    reply
+      .header('Content-Type', type)
+      .header('Content-Length', String(st.size))
+      .header('Cache-Control', 'private, max-age=3600');
     return reply.send(createReadStream(segPath));
   });
 
@@ -291,13 +370,18 @@ export function registerPlaybackRoutes(app: FastifyInstance, ctx: AppContext) {
   });
 
   app.get('/api/subtitles/:videoId/:file', async (request, reply) => {
-    const { videoId, file } = parse(z.object({ videoId: idSchema, file: z.string().regex(/^[a-zA-Z0-9_-]{1,64}\.vtt$/) }), request.params);
+    const { videoId, file } = parse(
+      z.object({ videoId: idSchema, file: z.string().regex(/^[a-zA-Z0-9_-]{1,64}\.vtt$/) }),
+      request.params,
+    );
     const subId = file.slice(0, -4);
     const v = await loadVideo(videoId, { allowMissing: true });
     const sub = await ctx.db.subtitle.findFirst({ where: { id: subId, videoFileId: v.id } });
     if (!sub) throw notFound('Subtitle');
     const vtt = await ctx.subtitles.toVtt(sub, { path: v.path, folderPath: v.folder.path });
-    reply.header('Content-Type', 'text/vtt; charset=utf-8').header('Cache-Control', 'private, max-age=600');
+    reply
+      .header('Content-Type', 'text/vtt; charset=utf-8')
+      .header('Cache-Control', 'private, max-age=600');
     return reply.send(vtt);
   });
 
@@ -306,9 +390,15 @@ export function registerPlaybackRoutes(app: FastifyInstance, ctx: AppContext) {
     const { name } = parse(z.object({ name: z.string().max(160) }), request.params);
     const file = ctx.images.resolve(name);
     if (!file) throw notFound('Image');
-    const type = name.endsWith('.webp') ? 'image/webp' : name.endsWith('.png') ? 'image/png' : 'image/jpeg';
+    const type = name.endsWith('.webp')
+      ? 'image/webp'
+      : name.endsWith('.png')
+        ? 'image/png'
+        : 'image/jpeg';
     // Image names change whenever artwork changes, so they can be cached forever.
-    reply.header('Content-Type', type).header('Cache-Control', 'public, max-age=31536000, immutable');
+    reply
+      .header('Content-Type', type)
+      .header('Cache-Control', 'public, max-age=31536000, immutable');
     return reply.send(createReadStream(file));
   });
 }

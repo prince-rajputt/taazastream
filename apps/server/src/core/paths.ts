@@ -44,7 +44,10 @@ export function isInsideAny(roots: string[], filePath: string): boolean {
  * Validates a single path segment coming from a URL (e.g. an image or segment file name).
  * Allows only a strict character set, so `..`, slashes, drive letters, NUL etc. are rejected.
  */
-export function safeFileName(name: string, pattern = /^[a-zA-Z0-9_-]{1,128}\.[a-z0-9]{1,8}$/): boolean {
+export function safeFileName(
+  name: string,
+  pattern = /^[a-zA-Z0-9_-]{1,128}\.[a-z0-9]{1,8}$/,
+): boolean {
   return pattern.test(name) && !name.includes('..');
 }
 
@@ -60,7 +63,12 @@ export function isForbiddenMediaRoot(p: string): boolean {
   const n = normalizeForCompare(p).replace(/[\\/]+$/, '');
   if (isWindows) {
     if (/^[a-z]:$/.test(n)) return false; // whole drives such as E:\ are fine
-    const blocked = ['c:\\windows', 'c:\\program files', 'c:\\program files (x86)', 'c:\\programdata'];
+    const blocked = [
+      'c:\\windows',
+      'c:\\program files',
+      'c:\\program files (x86)',
+      'c:\\programdata',
+    ];
     return blocked.some((b) => n === b || n.startsWith(`${b}\\`));
   }
   const blocked = ['/etc', '/proc', '/sys', '/dev', '/boot', '/bin', '/sbin', '/usr', '/root'];

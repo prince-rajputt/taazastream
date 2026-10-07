@@ -44,11 +44,17 @@ export function RowShell({ title, href, variant, children, id }: RowShellProps) 
   return (
     <section className="group/row relative" aria-labelledby={headingId}>
       <div className="page-x mb-2.5 flex items-end justify-between gap-4 md:mb-3">
-        <h2 id={headingId} className="font-display text-lg font-semibold tracking-tight md:text-xl lg:text-2xl">
+        <h2
+          id={headingId}
+          className="font-display text-lg font-semibold tracking-tight md:text-xl lg:text-2xl"
+        >
           {title}
         </h2>
         {href && (
-          <Link to={href} className="shrink-0 text-xs font-medium text-muted transition hover:text-fg md:text-sm">
+          <Link
+            to={href}
+            className="shrink-0 text-xs font-medium text-muted transition hover:text-fg md:text-sm"
+          >
             See all
           </Link>
         )}
@@ -89,13 +95,22 @@ export function RowShell({ title, href, variant, children, id }: RowShellProps) 
   );
 }
 
-export function Row({ row, onRemoveContinue }: { row: HomeRow; onRemoveContinue?: (videoId: string) => void }) {
+export function Row({
+  row,
+  onRemoveContinue,
+}: {
+  row: HomeRow;
+  onRemoveContinue?: (videoId: string) => void;
+}) {
   return (
     <RowShell title={row.title} href={row.href} variant={row.variant} id={row.id}>
       {row.variant === 'continue'
         ? (row.continueItems ?? []).map((c) => (
             <div key={c.videoId} className="snap-start">
-              <ContinueCard item={c} onRemove={onRemoveContinue ? () => onRemoveContinue(c.videoId) : undefined} />
+              <ContinueCard
+                item={c}
+                onRemove={onRemoveContinue ? () => onRemoveContinue(c.videoId) : undefined}
+              />
             </div>
           ))
         : row.items.map((item, i) => (

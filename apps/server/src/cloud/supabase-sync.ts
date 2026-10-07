@@ -95,7 +95,10 @@ export class SupabaseSync {
       this.state.message = 'Supabase unreachable — local-only mode';
     }
     this.state.lastCheckedAt = new Date().toISOString();
-    this.state.mode = this.state.reachable && this.state.canWrite && this.settings.get().cloudSyncEnabled ? 'cloud-sync' : 'local-only';
+    this.state.mode =
+      this.state.reachable && this.state.canWrite && this.settings.get().cloudSyncEnabled
+        ? 'cloud-sync'
+        : 'local-only';
     if (!this.state.reachable && (wasReachable || this.state.lastSyncAt === null)) {
       this.log.warn('Supabase unavailable. Continuing in local-only mode.');
     } else if (this.state.reachable && !wasReachable) {
@@ -119,9 +122,14 @@ export class SupabaseSync {
    */
   async sync(): Promise<{ ok: boolean; message: string; uploaded?: number }> {
     if (this.syncing) return { ok: false, message: 'A sync is already running' };
-    if (!this.client || !this.provider) return { ok: false, message: 'Cloud sync requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY on the server' };
+    if (!this.client || !this.provider)
+      return {
+        ok: false,
+        message: 'Cloud sync requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY on the server',
+      };
     await this.check();
-    if (!this.state.reachable) return { ok: false, message: 'Supabase unavailable. Continuing in local-only mode.' };
+    if (!this.state.reachable)
+      return { ok: false, message: 'Supabase unavailable. Continuing in local-only mode.' };
 
     this.syncing = true;
     const started = Date.now();
@@ -148,7 +156,13 @@ export class SupabaseSync {
           year: m.year,
           overview: m.overview,
           genres: m.genres.map((g) => g.name),
-          data: { rating: m.rating, contentRating: m.contentRating, tagline: m.tagline, director: m.director, cast: safeJson(m.cast) },
+          data: {
+            rating: m.rating,
+            contentRating: m.contentRating,
+            tagline: m.tagline,
+            director: m.director,
+            cast: safeJson(m.cast),
+          },
           poster_key: m.posterImage ? `${serverId}/images/${m.posterImage}` : null,
           backdrop_key: m.backdropImage ? `${serverId}/images/${m.backdropImage}` : null,
           updated_at: m.updatedAt.toISOString(),
@@ -168,19 +182,27 @@ export class SupabaseSync {
         })),
       ];
       for (let i = 0; i < rows.length; i += 200) {
-        const res = await this.client.from('ts_media_metadata').upsert(rows.slice(i, i + 200), { onConflict: 'server_id,kind,local_id' });
+        const res = await this.client
+          .from('ts_media_metadata')
+          .upsert(rows.slice(i, i + 200), { onConflict: 'server_id,kind,local_id' });
         if (res.error) throw new Error(res.error.message);
       }
 
       // Artwork (posters/backdrops only — small WebP files). Track what was uploaded already.
       const uploaded = new Set(await this.settings.getValue<string[]>('cloud.uploadedImages', []));
-      const wanted = [...movies, ...series].flatMap((t) => [t.posterImage, t.backdropImage]).filter((x): x is string => !!x);
+      const wanted = [...movies, ...series]
+        .flatMap((t) => [t.posterImage, t.backdropImage])
+        .filter((x): x is string => !!x);
       let count = 0;
       for (const name of wanted) {
         if (uploaded.has(name)) continue;
         try {
           const data = await readFile(path.join(this.imagesDir, path.basename(name)));
-          await this.provider.put(`${serverId}/images/${name}`, data, name.endsWith('.webp') ? 'image/webp' : 'image/jpeg');
+          await this.provider.put(
+            `${serverId}/images/${name}`,
+            data,
+            name.endsWith('.webp') ? 'image/webp' : 'image/jpeg',
+          );
           uploaded.add(name);
           count++;
         } catch (err) {
@@ -191,7 +213,9 @@ export class SupabaseSync {
 
       // CloudBackup: gzip'd metadata export.
       const meta = await exportMetadata(this.db);
-      const json = JSON.stringify(meta, (_k, v: unknown) => (typeof v === 'bigint' ? Number(v) : v));
+      const json = JSON.stringify(meta, (_k, v: unknown) =>
+        typeof v === 'bigint' ? Number(v) : v,
+      );
       const gz = gzipSync(json);
       const key = `${serverId}/backups/metadata-${new Date().toISOString().replace(/[:.]/g, '-')}.json.gz`;
       await this.provider.put(key, gz, 'application/gzip');
@@ -204,8 +228,15 @@ export class SupabaseSync {
       if (rec.error) throw new Error(rec.error.message);
 
       this.state.lastSyncAt = new Date().toISOString();
-      this.log.info({ ms: Date.now() - started, titles: rows.length, images: count }, 'cloud sync complete');
-      return { ok: true, message: `Synced ${rows.length} titles and ${count} images`, uploaded: count };
+      this.log.info(
+        { ms: Date.now() - started, titles: rows.length, images: count },
+        'cloud sync complete',
+      );
+      return {
+        ok: true,
+        message: `Synced ${rows.length} titles and ${count} images`,
+        uploaded: count,
+      };
     } catch (err) {
       const message = (err as Error).message;
       this.log.warn({ err: message }, 'cloud sync failed; local operation is unaffected');

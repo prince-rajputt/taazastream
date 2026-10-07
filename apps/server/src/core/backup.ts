@@ -12,22 +12,41 @@ const NAME_RE = /^taazastream-\d{8}-\d{6}\.(db|json)$/;
 
 /** Everything except video files: settings, folders, titles, progress, lists. */
 export async function exportMetadata(db: Db) {
-  const [settings, folders, genres, movies, series, users, favorites, continueWatching, playlists] = await Promise.all([
-    db.serverSetting.findMany(),
-    db.mediaFolder.findMany(),
-    db.genre.findMany(),
-    db.movie.findMany({ include: { genres: { select: { slug: true } }, videos: { select: { relPath: true, folderId: true } } } }),
-    db.series.findMany({
-      include: {
-        genres: { select: { slug: true } },
-        seasons: { include: { episodes: { include: { videos: { select: { relPath: true, folderId: true } } } } } },
-      },
-    }),
-    db.user.findMany({ select: { id: true, username: true, role: true, displayName: true, color: true, isKids: true } }),
-    db.favorite.findMany(),
-    db.continueWatching.findMany(),
-    db.playlist.findMany({ include: { items: true } }),
-  ]);
+  const [settings, folders, genres, movies, series, users, favorites, continueWatching, playlists] =
+    await Promise.all([
+      db.serverSetting.findMany(),
+      db.mediaFolder.findMany(),
+      db.genre.findMany(),
+      db.movie.findMany({
+        include: {
+          genres: { select: { slug: true } },
+          videos: { select: { relPath: true, folderId: true } },
+        },
+      }),
+      db.series.findMany({
+        include: {
+          genres: { select: { slug: true } },
+          seasons: {
+            include: {
+              episodes: { include: { videos: { select: { relPath: true, folderId: true } } } },
+            },
+          },
+        },
+      }),
+      db.user.findMany({
+        select: {
+          id: true,
+          username: true,
+          role: true,
+          displayName: true,
+          color: true,
+          isKids: true,
+        },
+      }),
+      db.favorite.findMany(),
+      db.continueWatching.findMany(),
+      db.playlist.findMany({ include: { items: true } }),
+    ]);
   return {
     format: 'taazastream-metadata',
     version: APP_VERSION,
@@ -70,7 +89,10 @@ export class BackupService {
     // VACUUM INTO produces a consistent, compacted copy even while the server is running.
     await this.db.$executeRawUnsafe(`VACUUM INTO '${dbFile.replace(/'/g, "''")}'`);
     const meta = await exportMetadata(this.db);
-    await writeFile(jsonFile, JSON.stringify(meta, (_k, v: unknown) => (typeof v === 'bigint' ? Number(v) : v), 2));
+    await writeFile(
+      jsonFile,
+      JSON.stringify(meta, (_k, v: unknown) => (typeof v === 'bigint' ? Number(v) : v), 2),
+    );
     await this.rotate();
     this.log.info({ backup: base }, 'backup created');
     return (await this.list()).filter((b) => b.fileName.startsWith(base));

@@ -39,14 +39,18 @@ export default function HomePage() {
           icon={<FolderPlus className="h-7 w-7" />}
           title="Your cinema is ready — add some videos"
           action={
-            <Link to="/admin/folders" className="inline-flex h-12 items-center rounded-full bg-gradient-brand px-7 font-semibold text-white shadow-lg shadow-brand-600/30 transition hover:brightness-110">
+            <Link
+              to="/admin/folders"
+              className="inline-flex h-12 items-center rounded-full bg-gradient-brand px-7 font-semibold text-white shadow-lg shadow-brand-600/30 transition hover:brightness-110"
+            >
               Add a media folder
             </Link>
           }
         >
-          Point TaazaStream at the folders on your server PC that hold your movies and series (for example
-          <span className="font-mono text-fg"> D:\TaazaStream\Movies</span>), then scan the library. Your videos stay on the server and
-          stream over your Wi-Fi.
+          Point TaazaStream at the folders on your server PC that hold your movies and series (for
+          example
+          <span className="font-mono text-fg"> D:\TaazaStream\Movies</span>), then scan the library.
+          Your videos stay on the server and stream over your Wi-Fi.
         </EmptyState>
       </div>
     );
@@ -57,7 +61,11 @@ export default function HomePage() {
       <Hero items={data.hero} />
       <div className="relative z-10 -mt-16 space-y-8 md:-mt-28 md:space-y-11">
         {data.rows.map((row) => (
-          <Row key={row.id} row={row} onRemoveContinue={row.variant === 'continue' ? (id) => remove.mutate(id) : undefined} />
+          <Row
+            key={row.id}
+            row={row}
+            onRemoveContinue={row.variant === 'continue' ? (id) => remove.mutate(id) : undefined}
+          />
         ))}
         {data.genres.length > 0 && (
           <section className="page-x" aria-labelledby="genres-heading">

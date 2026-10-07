@@ -68,7 +68,10 @@ export class LocalDatabase {
         },
       );
       const applied = /(\d+) migrations? found/.exec(stdout)?.[1];
-      this.log.info({ ms: Date.now() - started, migrations: applied }, 'database migrations applied');
+      this.log.info(
+        { ms: Date.now() - started, migrations: applied },
+        'database migrations applied',
+      );
     } catch (err) {
       const e = err as { stderr?: string; message: string };
       this.log.error({ err: e.stderr?.trim() || e.message }, 'database migration failed');

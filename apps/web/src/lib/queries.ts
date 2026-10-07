@@ -24,7 +24,10 @@ export function useHome() {
   return useQuery({ queryKey: ['home', p], queryFn: () => api.get<HomeFeed>('/api/home') });
 }
 
-export function useBrowse(kind: 'movies' | 'series', params: { genre?: string; sort?: string; page?: number }) {
+export function useBrowse(
+  kind: 'movies' | 'series',
+  params: { genre?: string; sort?: string; page?: number },
+) {
   const p = useProfileKey();
   return useQuery({
     queryKey: ['browse', kind, params, p],
@@ -37,22 +40,33 @@ export function useGenre(slug: string) {
   const p = useProfileKey();
   return useQuery({
     queryKey: ['genre', slug, p],
-    queryFn: () => api.get<{ genre: GenreInfo; items: TitleCard[] }>(`/api/genres/${encodeURIComponent(slug)}`),
+    queryFn: () =>
+      api.get<{ genre: GenreInfo; items: TitleCard[] }>(`/api/genres/${encodeURIComponent(slug)}`),
   });
 }
 
 export function useGenres() {
-  return useQuery({ queryKey: ['genres'], queryFn: () => api.get<GenreInfo[]>('/api/genres'), staleTime: 5 * 60_000 });
+  return useQuery({
+    queryKey: ['genres'],
+    queryFn: () => api.get<GenreInfo[]>('/api/genres'),
+    staleTime: 5 * 60_000,
+  });
 }
 
 export function useMovie(id: string) {
   const p = useProfileKey();
-  return useQuery({ queryKey: ['movie', id, p], queryFn: () => api.get<MovieDetail>(`/api/movies/${id}`) });
+  return useQuery({
+    queryKey: ['movie', id, p],
+    queryFn: () => api.get<MovieDetail>(`/api/movies/${id}`),
+  });
 }
 
 export function useSeries(id: string) {
   const p = useProfileKey();
-  return useQuery({ queryKey: ['series', id, p], queryFn: () => api.get<SeriesDetail>(`/api/series/${id}`) });
+  return useQuery({
+    queryKey: ['series', id, p],
+    queryFn: () => api.get<SeriesDetail>(`/api/series/${id}`),
+  });
 }
 
 export function useSearch(q: string) {
@@ -76,12 +90,18 @@ export function useSuggestions(q: string) {
 
 export function useMyList() {
   const p = useProfileKey();
-  return useQuery({ queryKey: ['my-list', p], queryFn: () => api.get<TitleCard[]>('/api/my-list') });
+  return useQuery({
+    queryKey: ['my-list', p],
+    queryFn: () => api.get<TitleCard[]>('/api/my-list'),
+  });
 }
 
 export function useContinueWatching() {
   const p = useProfileKey();
-  return useQuery({ queryKey: ['continue', p], queryFn: () => api.get<ContinueWatchingItem[]>('/api/continue-watching') });
+  return useQuery({
+    queryKey: ['continue', p],
+    queryFn: () => api.get<ContinueWatchingItem[]>('/api/continue-watching'),
+  });
 }
 
 export function useProfiles() {
@@ -91,7 +111,14 @@ export function useProfiles() {
 export function useConnectInfo() {
   return useQuery({
     queryKey: ['connect'],
-    queryFn: () => api.get<{ name: string; primaryUrl: string; urls: string[]; mdnsHost: string | null; qrSvg: string }>('/api/connect'),
+    queryFn: () =>
+      api.get<{
+        name: string;
+        primaryUrl: string;
+        urls: string[];
+        mdnsHost: string | null;
+        qrSvg: string;
+      }>('/api/connect'),
     staleTime: 60_000,
   });
 }
@@ -100,8 +127,15 @@ export function useConnectInfo() {
 export function useToggleMyList() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ kind, id, add }: { kind: 'movie' | 'series'; id: string; add: boolean }) =>
-      add ? api.post('/api/my-list', { kind, id }) : api.delete(`/api/my-list/${kind}/${id}`),
+    mutationFn: async ({
+      kind,
+      id,
+      add,
+    }: {
+      kind: 'movie' | 'series';
+      id: string;
+      add: boolean;
+    }) => (add ? api.post('/api/my-list', { kind, id }) : api.delete(`/api/my-list/${kind}/${id}`)),
     onMutate: async ({ id, add }) => {
       const patch = (old: unknown): unknown => {
         if (!old || typeof old !== 'object') return old;
@@ -109,7 +143,8 @@ export function useToggleMyList() {
         const o = old as Record<string, unknown>;
         const next: Record<string, unknown> = { ...o };
         if (o.id === id && 'inMyList' in o) next.inMyList = add;
-        for (const k of ['hero', 'rows', 'items', 'related']) if (Array.isArray(o[k])) next[k] = (o[k] as unknown[]).map(patch);
+        for (const k of ['hero', 'rows', 'items', 'related'])
+          if (Array.isArray(o[k])) next[k] = (o[k] as unknown[]).map(patch);
         return next;
       };
       for (const key of [['home'], ['movie'], ['series'], ['browse'], ['search'], ['genre']]) {

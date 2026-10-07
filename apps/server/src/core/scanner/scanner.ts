@@ -81,7 +81,11 @@ export async function* walkVideos(root: string, rel = ''): AsyncGenerator<FoundF
       try {
         const st = await stat(full);
         // Skip "sample" clips that ship with releases.
-        if (/(^|[\s._-])sample([\s._-]|$)/i.test(path.basename(name, ext)) && st.size < 150 * 1024 * 1024) continue;
+        if (
+          /(^|[\s._-])sample([\s._-]|$)/i.test(path.basename(name, ext)) &&
+          st.size < 150 * 1024 * 1024
+        )
+          continue;
         if (st.size === 0) continue;
         yield { path: full, relPath, size: st.size, mtimeMs: Math.floor(st.mtimeMs) };
       } catch {
@@ -91,7 +95,12 @@ export async function* walkVideos(root: string, rel = ''): AsyncGenerator<FoundF
   }
 }
 
-async function pool<T>(items: T[], concurrency: number, fn: (item: T) => Promise<void>, shouldStop: () => boolean) {
+async function pool<T>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<void>,
+  shouldStop: () => boolean,
+) {
   let i = 0;
   const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
     while (i < items.length && !shouldStop()) {
@@ -162,7 +171,14 @@ export class LocalMediaScanner extends EventEmitter {
   }
 
   private toInfo(
-    job: { id: string; status: string; folderId: string | null; startedAt: Date | null; finishedAt: Date | null; message: string | null },
+    job: {
+      id: string;
+      status: string;
+      folderId: string | null;
+      startedAt: Date | null;
+      finishedAt: Date | null;
+      message: string | null;
+    },
     progress: number,
     currentFile: string | null,
     counters?: ScanCounters,
@@ -189,11 +205,23 @@ export class LocalMediaScanner extends EventEmitter {
     this.touchedMovies.clear();
     this.touchedSeries.clear();
     const startedAt = new Date();
-    const counters: ScanCounters = { filesSeen: 0, filesAdded: 0, filesUpdated: 0, filesRemoved: 0, filesFailed: 0 };
-    let job = await this.db.scanJob.update({ where: { id: jobId }, data: { status: 'running', startedAt } });
+    const counters: ScanCounters = {
+      filesSeen: 0,
+      filesAdded: 0,
+      filesUpdated: 0,
+      filesRemoved: 0,
+      filesFailed: 0,
+    };
+    let job = await this.db.scanJob.update({
+      where: { id: jobId },
+      data: { status: 'running', startedAt },
+    });
     this.current = this.toInfo(job, 0, null, counters);
     this.emit('progress', this.current);
-    this.log.info({ jobId, folderId: options.folderId ?? 'all', full: !!options.full }, 'library scan started');
+    this.log.info(
+      { jobId, folderId: options.folderId ?? 'all', full: !!options.full },
+      'library scan started',
+    );
 
     let lastPersist = 0;
     const report = (progress: number, currentFile: string | null) => {
@@ -202,7 +230,9 @@ export class LocalMediaScanner extends EventEmitter {
       const now = Date.now();
       if (now - lastPersist > 2000) {
         lastPersist = now;
-        void this.db.scanJob.update({ where: { id: jobId }, data: { ...counters } }).catch(() => undefined);
+        void this.db.scanJob
+          .update({ where: { id: jobId }, data: { ...counters } })
+          .catch(() => undefined);
       }
     };
 
@@ -237,7 +267,10 @@ export class LocalMediaScanner extends EventEmitter {
     this.current = this.toInfo(job, 1, null, counters);
     this.emit('progress', this.current);
     this.emit('finished', this.current);
-    this.log.info({ jobId, status, ms: Date.now() - startedAt.getTime(), ...counters }, 'library scan finished');
+    this.log.info(
+      { jobId, status, ms: Date.now() - startedAt.getTime(), ...counters },
+      'library scan finished',
+    );
 
     const result = this.current;
     const next = this.queue.shift() as (ScanOptions & { jobId?: string }) | undefined;
@@ -257,9 +290,15 @@ export class LocalMediaScanner extends EventEmitter {
 
     if (!existsSync(folder.path)) {
       // Drive unplugged or folder renamed: keep records, but mark them unavailable.
-      const res = await this.db.videoFile.updateMany({ where: { folderId: folder.id, missing: false }, data: { missing: true } });
+      const res = await this.db.videoFile.updateMany({
+        where: { folderId: folder.id, missing: false },
+        data: { missing: true },
+      });
       counters.filesRemoved += res.count;
-      this.log.warn({ folder: folder.path }, 'media folder not reachable; its videos are marked missing');
+      this.log.warn(
+        { folder: folder.path },
+        'media folder not reachable; its videos are marked missing',
+      );
       return;
     }
 
@@ -277,7 +316,9 @@ export class LocalMediaScanner extends EventEmitter {
     const newFiles = found.filter((f) => !byPath.has(f.path));
     for (const f of newFiles) {
       const idx = vanished.findIndex(
-        (v) => Number(v.sizeBytes) === f.size && v.fileName.toLowerCase() === path.basename(f.path).toLowerCase(),
+        (v) =>
+          Number(v.sizeBytes) === f.size &&
+          v.fileName.toLowerCase() === path.basename(f.path).toLowerCase(),
       );
       if (idx >= 0) {
         const moved = vanished.splice(idx, 1)[0]!;
@@ -297,7 +338,12 @@ export class LocalMediaScanner extends EventEmitter {
       async (f) => {
         const prev = byPath.get(f.path);
         try {
-          const unchanged = prev && Number(prev.sizeBytes) === f.size && prev.mtimeMs === f.mtimeMs && prev.probedAt && !prev.probeError;
+          const unchanged =
+            prev &&
+            Number(prev.sizeBytes) === f.size &&
+            prev.mtimeMs === f.mtimeMs &&
+            prev.probedAt &&
+            !prev.probeError;
           if (unchanged && !full) {
             if (prev.missing) {
               await this.db.videoFile.update({ where: { id: prev.id }, data: { missing: false } });
@@ -322,20 +368,31 @@ export class LocalMediaScanner extends EventEmitter {
     if (this.cancelRequested) return;
     const goneIds = vanished.filter((v) => !v.missing).map((v) => v.id);
     if (goneIds.length) {
-      await this.db.videoFile.updateMany({ where: { id: { in: goneIds } }, data: { missing: true } });
+      await this.db.videoFile.updateMany({
+        where: { id: { in: goneIds } },
+        data: { missing: true },
+      });
       counters.filesRemoved += goneIds.length;
       this.log.info({ folder: folder.path, count: goneIds.length }, 'deleted files detected');
     }
-    await this.db.mediaFolder.update({ where: { id: folder.id }, data: { lastScannedAt: new Date() } });
+    await this.db.mediaFolder.update({
+      where: { id: folder.id },
+      data: { lastScannedAt: new Date() },
+    });
   }
 
-  private async probe(filePath: string): Promise<{ probe: MediaProbe | null; error: string | null }> {
+  private async probe(
+    filePath: string,
+  ): Promise<{ probe: MediaProbe | null; error: string | null }> {
     if (!this.ffmpeg.ffprobe.available) return { probe: null, error: null };
     try {
       return { probe: parseProbe(await this.ffmpeg.probeJson(filePath)), error: null };
     } catch (err) {
       const e = err as { stderr?: string; message: string };
-      return { probe: null, error: (e.stderr || e.message).toString().split('\n')[0]!.slice(0, 300) };
+      return {
+        probe: null,
+        error: (e.stderr || e.message).toString().split('\n')[0]!.slice(0, 300),
+      };
     }
   }
 
@@ -408,7 +465,9 @@ export class LocalMediaScanner extends EventEmitter {
   }
 
   private async syncSubtitles(videoId: string, videoPath: string, probe: MediaProbe | null) {
-    await this.db.subtitle.deleteMany({ where: { videoFileId: videoId, source: { in: ['embedded', 'sidecar'] } } });
+    await this.db.subtitle.deleteMany({
+      where: { videoFileId: videoId, source: { in: ['embedded', 'sidecar'] } },
+    });
     const rows: Prisma.SubtitleCreateManyInput[] = [];
     for (const s of probe?.subtitles ?? []) {
       const lang = languageLabel(s.language);
@@ -418,7 +477,9 @@ export class LocalMediaScanner extends EventEmitter {
         streamIndex: s.streamIndex,
         format: s.codec,
         language: s.language,
-        label: [s.title ?? lang ?? `Track ${s.streamIndex}`, s.forced ? '(Forced)' : ''].filter(Boolean).join(' '),
+        label: [s.title ?? lang ?? `Track ${s.streamIndex}`, s.forced ? '(Forced)' : '']
+          .filter(Boolean)
+          .join(' '),
         isDefault: s.isDefault,
         forced: s.forced,
       });
@@ -468,7 +529,11 @@ export class LocalMediaScanner extends EventEmitter {
       const name = raw.trim();
       const slug = slugify(name);
       if (!name || !slug) continue;
-      const genre = await this.db.genre.upsert({ where: { slug }, create: { name, slug }, update: {} });
+      const genre = await this.db.genre.upsert({
+        where: { slug },
+        create: { name, slug },
+        update: {},
+      });
       connect.push({ id: genre.id });
     }
     return connect;
@@ -486,7 +551,12 @@ export class LocalMediaScanner extends EventEmitter {
     return out;
   }
 
-  private async linkMovie(video: VideoFile, parsed: ParsedMovie, filePath: string, probe: MediaProbe | null) {
+  private async linkMovie(
+    video: VideoFile,
+    parsed: ParsedMovie,
+    filePath: string,
+    probe: MediaProbe | null,
+  ) {
     const dir = path.dirname(filePath);
     const base = path.basename(filePath, path.extname(filePath));
     const meta = await readSidecarMetadata([
@@ -531,32 +601,67 @@ export class LocalMediaScanner extends EventEmitter {
       });
     }
 
-    await this.db.videoFile.update({ where: { id: video.id }, data: { movieId: movie.id, episodeId: null } });
+    await this.db.videoFile.update({
+      where: { id: video.id },
+      data: { movieId: movie.id, episodeId: null },
+    });
     this.touchedMovies.add(movie.id);
 
     // Artwork: sidecar files first, generated frames as a fallback.
     const thumbs = this.settings.get().thumbnailsEnabled;
     const update: Prisma.MovieUpdateInput = {};
     if (!movie.posterImage) {
-      const src = await this.findArtwork(dir, [`${base}-poster`, `${base}.poster`, 'poster', 'folder', 'cover']);
+      const src = await this.findArtwork(dir, [
+        `${base}-poster`,
+        `${base}.poster`,
+        'poster',
+        'folder',
+        'cover',
+      ]);
       if (src) update.posterImage = await this.images.fromFile(src, 'poster', movie.id);
     }
     if (!movie.backdropImage) {
-      const src = await this.findArtwork(dir, [`${base}-fanart`, `${base}-backdrop`, 'fanart', 'backdrop', 'background']);
+      const src = await this.findArtwork(dir, [
+        `${base}-fanart`,
+        `${base}-backdrop`,
+        'fanart',
+        'backdrop',
+        'background',
+      ]);
       if (src) update.backdropImage = await this.images.fromFile(src, 'backdrop', movie.id);
-      else if (thumbs) update.backdropImage = await this.images.fromVideo(filePath, frameTime(probe, 0.22), 'backdrop', movie.id);
+      else if (thumbs)
+        update.backdropImage = await this.images.fromVideo(
+          filePath,
+          frameTime(probe, 0.22),
+          'backdrop',
+          movie.id,
+        );
     }
-    if (Object.keys(update).length) await this.db.movie.update({ where: { id: movie.id }, data: update });
+    if (Object.keys(update).length)
+      await this.db.movie.update({ where: { id: movie.id }, data: update });
     if (thumbs && !video.thumbImage) {
-      const thumb = await this.images.fromVideo(filePath, frameTime(probe, 0.12), 'thumb', video.id);
-      if (thumb) await this.db.videoFile.update({ where: { id: video.id }, data: { thumbImage: thumb } });
+      const thumb = await this.images.fromVideo(
+        filePath,
+        frameTime(probe, 0.12),
+        'thumb',
+        video.id,
+      );
+      if (thumb)
+        await this.db.videoFile.update({ where: { id: video.id }, data: { thumbImage: thumb } });
     }
   }
 
-  private async linkEpisode(video: VideoFile, parsed: ParsedEpisode, filePath: string, probe: MediaProbe | null) {
+  private async linkEpisode(
+    video: VideoFile,
+    parsed: ParsedEpisode,
+    filePath: string,
+    probe: MediaProbe | null,
+  ) {
     const dir = path.dirname(filePath);
     const base = path.basename(filePath, path.extname(filePath));
-    const seasonDir = /^(?:season|series|staffel|saison|temporada|s)[\s._-]*\d{1,3}$/i.test(path.basename(dir));
+    const seasonDir = /^(?:season|series|staffel|saison|temporada|s)[\s._-]*\d{1,3}$/i.test(
+      path.basename(dir),
+    );
     const seriesDir = seasonDir ? path.dirname(dir) : dir;
 
     const seriesMeta = await readSidecarMetadata([
@@ -564,7 +669,10 @@ export class LocalMediaScanner extends EventEmitter {
       path.join(seriesDir, 'series.json'),
       path.join(seriesDir, 'tvshow.json'),
     ]);
-    const epMeta = await readSidecarMetadata([path.join(dir, `${base}.nfo`), path.join(dir, `${base}.json`)]);
+    const epMeta = await readSidecarMetadata([
+      path.join(dir, `${base}.nfo`),
+      path.join(dir, `${base}.json`),
+    ]);
 
     const seriesTitle = seriesMeta.title ?? parsed.seriesTitle;
     const sortTitle = sortTitleOf(seriesTitle);
@@ -631,7 +739,10 @@ export class LocalMediaScanner extends EventEmitter {
           },
         });
 
-    await this.db.videoFile.update({ where: { id: video.id }, data: { episodeId: episode.id, movieId: null } });
+    await this.db.videoFile.update({
+      where: { id: video.id },
+      data: { episodeId: episode.id, movieId: null },
+    });
     this.touchedSeries.add(series.id);
 
     const thumbs = this.settings.get().thumbnailsEnabled;
@@ -654,35 +765,56 @@ export class LocalMediaScanner extends EventEmitter {
     if (!series.backdropImage) {
       const src = await this.findArtwork(seriesDir, ['fanart', 'backdrop', 'background']);
       if (src) update.backdropImage = await this.images.fromFile(src, 'backdrop', series.id);
-      else if (thumbs) update.backdropImage = await this.images.fromVideo(filePath, frameTime(probe, 0.3), 'backdrop', series.id);
+      else if (thumbs)
+        update.backdropImage = await this.images.fromVideo(
+          filePath,
+          frameTime(probe, 0.3),
+          'backdrop',
+          series.id,
+        );
     }
     if (!season.posterImage) {
       const n = String(parsed.seasonNumber).padStart(2, '0');
-      const src = await this.findArtwork(seriesDir, [`season${n}-poster`, `season${parsed.seasonNumber}-poster`, `season${n}`]);
+      const src = await this.findArtwork(seriesDir, [
+        `season${n}-poster`,
+        `season${parsed.seasonNumber}-poster`,
+        `season${n}`,
+      ]);
       if (src) {
         const img = await this.images.fromFile(src, 'season', season.id);
-        if (img) await this.db.season.update({ where: { id: season.id }, data: { posterImage: img } });
+        if (img)
+          await this.db.season.update({ where: { id: season.id }, data: { posterImage: img } });
       }
     }
-    if (Object.keys(update).length) await this.db.series.update({ where: { id: series.id }, data: update });
+    if (Object.keys(update).length)
+      await this.db.series.update({ where: { id: series.id }, data: update });
   }
 
   /** Remove titles that no longer have any video file (e.g. after files were relinked). */
   async cleanupOrphans(): Promise<void> {
-    const movies = await this.db.movie.findMany({ where: { videos: { none: {} } }, select: { id: true, posterImage: true, backdropImage: true } });
+    const movies = await this.db.movie.findMany({
+      where: { videos: { none: {} } },
+      select: { id: true, posterImage: true, backdropImage: true },
+    });
     for (const m of movies) {
       await this.db.movie.delete({ where: { id: m.id } });
       await this.search.remove('movie', m.id);
       await this.images.remove(m.posterImage);
       await this.images.remove(m.backdropImage);
     }
-    const episodes = await this.db.episode.findMany({ where: { videos: { none: {} } }, select: { id: true, thumbImage: true } });
+    const episodes = await this.db.episode.findMany({
+      where: { videos: { none: {} } },
+      select: { id: true, thumbImage: true },
+    });
     for (const e of episodes) {
       await this.db.episode.delete({ where: { id: e.id } });
       await this.images.remove(e.thumbImage);
     }
     await this.db.season.deleteMany({ where: { episodes: { none: {} } } });
-    const series = await this.db.series.findMany({ where: { episodes: { none: {} } }, select: { id: true, posterImage: true, backdropImage: true } });
+    const series = await this.db.series.findMany({
+      where: { episodes: { none: {} } },
+      select: { id: true, posterImage: true, backdropImage: true },
+    });
     for (const s of series) {
       await this.db.series.delete({ where: { id: s.id } });
       await this.search.remove('series', s.id);
@@ -698,7 +830,7 @@ export class LocalMediaScanner extends EventEmitter {
  * family instead, using the extension to tell the two apart.
  */
 export function containerFamily(probeName: string | null, ext: string): string {
-  const e = ext.toLowerCase();
+  const e = ext.toLowerCase().replace(/^\./, '');
   const n = (probeName ?? '').toLowerCase();
   if (n.includes('matroska') || n.includes('webm')) return e === 'webm' ? 'webm' : 'mkv';
   if (n.includes('mp4') || n.includes('mov')) return e === 'mov' ? 'mov' : 'mp4';

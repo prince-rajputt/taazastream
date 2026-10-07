@@ -5,7 +5,8 @@ let cached: ClientCapabilities | null = null;
 function mse(type: string): boolean {
   try {
     const MS =
-      (window as unknown as { ManagedMediaSource?: typeof MediaSource }).ManagedMediaSource ?? window.MediaSource;
+      (window as unknown as { ManagedMediaSource?: typeof MediaSource }).ManagedMediaSource ??
+      window.MediaSource;
     return !!MS && MS.isTypeSupported(type);
   } catch {
     return false;
@@ -30,9 +31,12 @@ export function detectCapabilities(): ClientCapabilities {
   const test = (type: string) => mse(type) || canPlay(v, type);
 
   const video: string[] = [];
-  if (test('video/mp4; codecs="avc1.640028"') || test('video/mp4; codecs="avc1.42E01E"')) video.push('h264');
-  if (test('video/mp4; codecs="hvc1.1.6.L120.90"') || test('video/mp4; codecs="hev1.1.6.L120.90"')) video.push('hevc');
-  if (test('video/webm; codecs="vp9"') || test('video/mp4; codecs="vp09.00.10.08"')) video.push('vp9');
+  if (test('video/mp4; codecs="avc1.640028"') || test('video/mp4; codecs="avc1.42E01E"'))
+    video.push('h264');
+  if (test('video/mp4; codecs="hvc1.1.6.L120.90"') || test('video/mp4; codecs="hev1.1.6.L120.90"'))
+    video.push('hevc');
+  if (test('video/webm; codecs="vp9"') || test('video/mp4; codecs="vp09.00.10.08"'))
+    video.push('vp9');
   if (test('video/webm; codecs="vp8"')) video.push('vp8');
   if (test('video/mp4; codecs="av01.0.05M.08"')) video.push('av1');
 
@@ -51,7 +55,13 @@ export function detectCapabilities(): ClientCapabilities {
   const nativeHls = canPlay(v, 'application/vnd.apple.mpegurl');
   // Same test hls.js uses, without loading hls.js into the main bundle.
   const mseHls = mse('video/mp4; codecs="avc1.42E01E,mp4a.40.2"');
-  const hls: ClientCapabilities['hls'] = mseHls ? (nativeHls && isAppleWebKit() ? 'native' : 'mse') : nativeHls ? 'native' : 'none';
+  const hls: ClientCapabilities['hls'] = mseHls
+    ? nativeHls && isAppleWebKit()
+      ? 'native'
+      : 'mse'
+    : nativeHls
+      ? 'native'
+      : 'none';
 
   if (!video.includes('h264')) video.push('h264'); // universally supported; some TVs under-report
   if (!audio.includes('aac')) audio.push('aac');

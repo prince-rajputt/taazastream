@@ -1,4 +1,9 @@
-import { changePasswordSchema, loginSchema, setupSchema, type AuthState } from '@taazastream/shared';
+import {
+  changePasswordSchema,
+  loginSchema,
+  setupSchema,
+  type AuthState,
+} from '@taazastream/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { ADMIN_COOKIE } from '../app';
 import type { AppContext } from '../context';
@@ -9,7 +14,12 @@ import { parse } from '../http/validate';
 
 const LOGIN_RATE = { max: 10, timeWindow: '15 minutes' };
 
-function setSessionCookie(request: FastifyRequest, reply: FastifyReply, token: string, expiresAt: Date) {
+function setSessionCookie(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  token: string,
+  expiresAt: Date,
+) {
   reply.setCookie(ADMIN_COOKIE, token, {
     httpOnly: true,
     sameSite: 'strict',
@@ -22,7 +32,8 @@ function setSessionCookie(request: FastifyRequest, reply: FastifyReply, token: s
 }
 
 export function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) {
-  const currentUser = async (request: FastifyRequest) => ctx.auth.validateSession(request.cookies[ADMIN_COOKIE]);
+  const currentUser = async (request: FastifyRequest) =>
+    ctx.auth.validateSession(request.cookies[ADMIN_COOKIE]);
 
   app.get('/api/auth/state', async (request) => {
     const user = await currentUser(request);
@@ -41,9 +52,14 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) {
    * (loopback), so a guest on the Wi-Fi cannot claim the server.
    */
   app.post('/api/auth/setup', { config: { rateLimit: LOGIN_RATE } }, async (request, reply) => {
-    if (await ctx.auth.adminExists()) throw new AppError(409, 'CONFLICT', 'An admin account already exists');
+    if (await ctx.auth.adminExists())
+      throw new AppError(409, 'CONFLICT', 'An admin account already exists');
     if (!isLoopback(request.ip)) {
-      throw forbidden('For security, create the admin account on the server PC itself: open http://localhost:' + ctx.config.port + '/admin there.');
+      throw forbidden(
+        'For security, create the admin account on the server PC itself: open http://localhost:' +
+          ctx.config.port +
+          '/admin there.',
+      );
     }
     const body = parse(setupSchema, request.body);
     const user = await ctx.auth.createAdmin(body.username, body.password);
@@ -53,11 +69,15 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) {
   });
 
   app.post('/api/auth/login', { config: { rateLimit: LOGIN_RATE } }, async (request, reply) => {
-    if (!ctx.config.allowPublicAdmin && !isPrivateAddress(request.ip)) throw forbidden('Admin is only available on the local network');
+    if (!ctx.config.allowPublicAdmin && !isPrivateAddress(request.ip))
+      throw forbidden('Admin is only available on the local network');
     const body = parse(loginSchema, request.body);
     const user = await ctx.auth.verifyCredentials(body.username, body.password);
     if (!user) {
-      ctx.log.warn({ svc: 'auth', username: body.username.slice(0, 64), ip: request.ip }, 'admin login failed');
+      ctx.log.warn(
+        { svc: 'auth', username: body.username.slice(0, 64), ip: request.ip },
+        'admin login failed',
+      );
       throw unauthorized('Incorrect username or password');
     }
     const session = await ctx.auth.createSession(user.id, request.ip);
@@ -76,7 +96,8 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) {
     const user = await currentUser(request);
     if (!user?.passwordHash) throw unauthorized();
     const body = parse(changePasswordSchema, request.body);
-    if (!(await verifyPassword(body.currentPassword, user.passwordHash))) throw unauthorized('Current password is incorrect');
+    if (!(await verifyPassword(body.currentPassword, user.passwordHash)))
+      throw unauthorized('Current password is incorrect');
     await ctx.auth.changePassword(user.id, body.newPassword);
     const session = await ctx.auth.createSession(user.id, request.ip);
     setSessionCookie(request, reply, session.token, session.expiresAt);

@@ -24,11 +24,16 @@ export function Hero({ items }: { items: TitleCard[] }) {
 
   if (!item) return null;
 
-  const playHref = item.kind === 'movie' ? (item.videoId ? `/watch/${item.videoId}` : null) : hrefFor(item);
+  const playHref =
+    item.kind === 'movie' ? (item.videoId ? `/watch/${item.videoId}` : null) : hrefFor(item);
   const meta = [
     item.year,
     item.contentRating,
-    item.kind === 'movie' ? formatRuntime(item.durationSec) : item.seasonCount ? `${item.seasonCount} Season${item.seasonCount > 1 ? 's' : ''}` : null,
+    item.kind === 'movie'
+      ? formatRuntime(item.durationSec)
+      : item.seasonCount
+        ? `${item.seasonCount} Season${item.seasonCount > 1 ? 's' : ''}`
+        : null,
   ].filter(Boolean);
 
   return (
@@ -62,7 +67,9 @@ export function Hero({ items }: { items: TitleCard[] }) {
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink via-ink/20 to-ink/30" />
       <div
         className="pointer-events-none absolute inset-0 opacity-50 mix-blend-soft-light"
-        style={{ background: `radial-gradient(80% 60% at 20% 70%, ${item.accent}66, transparent 70%)` }}
+        style={{
+          background: `radial-gradient(80% 60% at 20% 70%, ${item.accent}66, transparent 70%)`,
+        }}
       />
 
       <div className="page-x absolute inset-x-0 bottom-[max(14%,5.5rem)] md:bottom-[max(20%,9.5rem)]">
@@ -82,13 +89,18 @@ export function Hero({ items }: { items: TitleCard[] }) {
               </span>
             )}
             {meta.map((m) => (
-              <span key={String(m)} className="after:ml-3 after:text-white/30 after:content-['•'] last:after:content-none">
+              <span
+                key={String(m)}
+                className="after:ml-3 after:text-white/30 after:content-['•'] last:after:content-none"
+              >
                 {m}
               </span>
             ))}
           </div>
           {item.overview && (
-            <p className="mt-4 hidden max-w-xl text-base leading-relaxed text-white/80 line-clamp-3 sm:block md:text-lg">{item.overview}</p>
+            <p className="mt-4 hidden max-w-xl text-base leading-relaxed text-white/80 line-clamp-3 sm:block md:text-lg">
+              {item.overview}
+            </p>
           )}
           <div className="mt-6 flex flex-wrap items-center gap-3">
             {playHref && (
@@ -120,7 +132,11 @@ export function Hero({ items }: { items: TitleCard[] }) {
       </div>
 
       {items.length > 1 && (
-        <div className="page-x absolute right-0 bottom-[max(6%,5rem)] flex gap-2 md:bottom-[max(12%,8.5rem)]" role="tablist" aria-label="Choose featured title">
+        <div
+          className="page-x absolute right-0 bottom-[max(6%,5rem)] flex gap-2 md:bottom-[max(12%,8.5rem)]"
+          role="tablist"
+          aria-label="Choose featured title"
+        >
           {items.map((it, i) => (
             <button
               key={it.id}

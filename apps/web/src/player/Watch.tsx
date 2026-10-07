@@ -25,7 +25,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { Spinner } from '../components/States';
-import { ApiError, api, beacon, qs } from '../lib/api';
+import { api, beacon, qs, type ApiError } from '../lib/api';
 import { capabilitiesParam, detectCapabilities } from '../lib/capabilities';
 import { channelsLabel, languageName } from '../lib/format';
 import { useDocumentTitle } from '../lib/hooks';
@@ -59,7 +59,12 @@ export default function WatchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId]);
 
-  const { data: info, error, refetch, isFetching } = useQuery({
+  const {
+    data: info,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ['playback', videoId, opts],
     queryFn: () =>
       api.get<PlaybackInfo>(
@@ -69,24 +74,43 @@ export default function WatchPage() {
     gcTime: 0,
     retry: 1,
   });
-  useDocumentTitle(info ? (info.subtitle ? `${info.title} · ${info.subtitle}` : info.title) : 'Playing');
+  useDocumentTitle(
+    info ? (info.subtitle ? `${info.title} · ${info.subtitle}` : info.title) : 'Playing',
+  );
 
   const exit = useCallback(() => {
     if (window.history.length > 1) navigate(-1);
-    else navigate(info ? (info.kind === 'series' ? `/series/${info.titleId}` : `/movie/${info.titleId}`) : '/');
+    else
+      navigate(
+        info
+          ? info.kind === 'series'
+            ? `/series/${info.titleId}`
+            : `/movie/${info.titleId}`
+          : '/',
+      );
   }, [navigate, info]);
 
   if (error) {
     const e = error as ApiError;
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center gap-4 bg-black px-6 text-center">
-        <h1 className="font-display text-2xl font-semibold">{e.code === 'MEDIA_MISSING' ? 'Video file not found' : 'Can’t play this video'}</h1>
+        <h1 className="font-display text-2xl font-semibold">
+          {e.code === 'MEDIA_MISSING' ? 'Video file not found' : 'Can’t play this video'}
+        </h1>
         <p className="max-w-md text-muted">{e.message}</p>
         <div className="flex gap-3">
-          <button type="button" onClick={() => void refetch()} className="rounded-full bg-white px-6 py-2.5 font-semibold text-black">
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="rounded-full bg-white px-6 py-2.5 font-semibold text-black"
+          >
             Try again
           </button>
-          <button type="button" onClick={exit} className="rounded-full border border-white/30 px-6 py-2.5">
+          <button
+            type="button"
+            onClick={exit}
+            className="rounded-full border border-white/30 px-6 py-2.5"
+          >
             Go back
           </button>
         </div>
@@ -125,11 +149,22 @@ interface PlayerProps {
   resumed: boolean;
   switching: boolean;
   onExit: () => void;
-  onChangeSource: (next: { quality?: QualityId; audio?: number; fallback?: boolean }, at: number) => void;
+  onChangeSource: (
+    next: { quality?: QualityId; audio?: number; fallback?: boolean },
+    at: number,
+  ) => void;
   onNext: (videoId: string) => void;
 }
 
-function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onNext }: PlayerProps) {
+function Player({
+  info,
+  startAt,
+  resumed,
+  switching,
+  onExit,
+  onChangeSource,
+  onNext,
+}: PlayerProps) {
   const video = useRef<HTMLVideoElement>(null);
   const shell = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -153,7 +188,9 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
   const [autoLevel, setAutoLevel] = useState(-1);
   const [subtitleId, setSubtitleId] = useState<string | null>(null);
   const [showStats, setShowStats] = useState(false);
-  const [toast, setToast] = useState<string | null>(resumed ? `Resumed at ${formatTimecode(startAt)}` : null);
+  const [toast, setToast] = useState<string | null>(
+    resumed ? `Resumed at ${formatTimecode(startAt)}` : null,
+  );
   const [ripple, setRipple] = useState<{ side: 'left' | 'right'; key: number } | null>(null);
   const [nextCountdown, setNextCountdown] = useState<number | null>(null);
   const [nextDismissed, setNextDismissed] = useState(false);
@@ -276,7 +313,8 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
     const onTime = () => {
       setCurrent(v.currentTime);
       for (let i = 0; i < v.buffered.length; i++) {
-        if (v.buffered.start(i) <= v.currentTime + 0.5 && v.buffered.end(i) >= v.currentTime) setBuffered(v.buffered.end(i));
+        if (v.buffered.start(i) <= v.currentTime + 0.5 && v.buffered.end(i) >= v.currentTime)
+          setBuffered(v.buffered.end(i));
       }
       if (!v.paused && Date.now() - lastReport.current > PROGRESS_EVERY_MS) report();
     };
@@ -296,14 +334,21 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
       const err = v.error;
       if (!err) return;
       // Direct play failed in this browser (codec/container it claimed to support): ask the server to convert.
-      if (info.mode === 'direct' && (err.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED || err.code === MediaError.MEDIA_ERR_DECODE)) {
+      if (
+        info.mode === 'direct' &&
+        (err.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED ||
+          err.code === MediaError.MEDIA_ERR_DECODE)
+      ) {
         onChangeSource({ fallback: true }, v.currentTime || startAt);
         return;
       }
-      if (err.code === MediaError.MEDIA_ERR_NETWORK) setFatal('Lost connection to the server. Check your Wi-Fi and try again.');
-      else if (info.mode !== 'direct' || err.code !== MediaError.MEDIA_ERR_ABORTED) setFatal('This video could not be played.');
+      if (err.code === MediaError.MEDIA_ERR_NETWORK)
+        setFatal('Lost connection to the server. Check your Wi-Fi and try again.');
+      else if (info.mode !== 'direct' || err.code !== MediaError.MEDIA_ERR_ABORTED)
+        setFatal('This video could not be played.');
     };
-    const onDuration = () => Number.isFinite(v.duration) && v.duration > 0 && setDuration(v.duration);
+    const onDuration = () =>
+      Number.isFinite(v.duration) && v.duration > 0 && setDuration(v.duration);
     const onWaiting = () => setWaiting(true);
     const onPlaying = () => setWaiting(false);
     const onVolume = () => prefs.set({ volume: v.volume, muted: v.muted });
@@ -405,13 +450,16 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
     else v.pause();
   }, []);
 
-  const seekTo = useCallback((t: number) => {
-    const v = video.current;
-    if (!v) return;
-    const max = Number.isFinite(v.duration) && v.duration > 0 ? v.duration : info.durationSec;
-    v.currentTime = Math.min(Math.max(0, t), Math.max(0, max - 0.25));
-    setCurrent(v.currentTime);
-  }, [info.durationSec]);
+  const seekTo = useCallback(
+    (t: number) => {
+      const v = video.current;
+      if (!v) return;
+      const max = Number.isFinite(v.duration) && v.duration > 0 ? v.duration : info.durationSec;
+      v.currentTime = Math.min(Math.max(0, t), Math.max(0, max - 0.25));
+      setCurrent(v.currentTime);
+    },
+    [info.durationSec],
+  );
 
   const skip = useCallback(
     (delta: number) => {
@@ -430,7 +478,9 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
         await document.exitFullscreen();
       } else if (el?.requestFullscreen) {
         await el.requestFullscreen({ navigationUI: 'hide' });
-        await (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.('landscape').catch(() => undefined);
+        await (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> })
+          .lock?.('landscape')
+          .catch(() => undefined);
       } else v?.webkitEnterFullscreen?.(); // iPhone
     } catch {
       /* not allowed */
@@ -444,7 +494,8 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
   }, []);
 
   const togglePip = useCallback(async () => {
-    const v = video.current as (HTMLVideoElement & { webkitSetPresentationMode?: (m: string) => void }) | null;
+    const v = video.current as
+      (HTMLVideoElement & { webkitSetPresentationMode?: (m: string) => void }) | null;
     if (!v) return;
     try {
       if (document.pictureInPictureElement) await document.exitPictureInPicture();
@@ -500,7 +551,8 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const target = e.target as HTMLElement;
-      if (target.closest('[role="menu"]') && ['ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) return;
+      if (target.closest('[role="menu"]') && ['ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key))
+        return;
       const v = video.current;
       if (!v) return;
       let handled = true;
@@ -589,13 +641,33 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [togglePlay, skip, toggleFullscreen, togglePip, goNext, seekTo, duration, menu, onExit, poke, info.subtitles]);
+  }, [
+    togglePlay,
+    skip,
+    toggleFullscreen,
+    togglePip,
+    goNext,
+    seekTo,
+    duration,
+    menu,
+    onExit,
+    poke,
+    info.subtitles,
+  ]);
 
   /* ---------------------------- quality / audio ---------------------------- */
   const qualityItems = useMemo(() => {
     if (info.isHls && levels.length > 1) {
       return [
-        { key: 'auto', label: `Auto${level === -1 && autoLevel >= 0 && levels[autoLevel] ? ` (${levels[autoLevel]!.height}p)` : ''}`, active: level === -1, pick: () => { if (hlsRef.current) hlsRef.current.currentLevel = -1; setLevel(-1); } },
+        {
+          key: 'auto',
+          label: `Auto${level === -1 && autoLevel >= 0 && levels[autoLevel] ? ` (${levels[autoLevel]!.height}p)` : ''}`,
+          active: level === -1,
+          pick: () => {
+            if (hlsRef.current) hlsRef.current.currentLevel = -1;
+            setLevel(-1);
+          },
+        },
         ...levels
           .map((l, i) => ({ l, i }))
           .sort((a, b) => b.l.height - a.l.height)
@@ -609,7 +681,15 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
             },
           })),
         ...(info.mode === 'transcode'
-          ? [{ key: 'original', label: 'Original (direct, if supported)', active: false, pick: () => onChangeSource({ quality: 'original' }, video.current?.currentTime ?? 0) }]
+          ? [
+              {
+                key: 'original',
+                label: 'Original (direct, if supported)',
+                active: false,
+                pick: () =>
+                  onChangeSource({ quality: 'original' }, video.current?.currentTime ?? 0),
+              },
+            ]
           : []),
       ];
     }
@@ -624,7 +704,13 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
   const activeSubtitle = info.subtitles.find((s) => s.id === subtitleId);
   const activeAudio = info.audioTracks.find((a) => a.index === info.audioIndex);
   const audioLabel = (a: (typeof info.audioTracks)[number]) =>
-    [a.title ?? languageName(a.language) ?? `Track ${a.index + 1}`, channelsLabel(a.channels), a.codec.toUpperCase()].filter(Boolean).join(' · ');
+    [
+      a.title ?? languageName(a.language) ?? `Track ${a.index + 1}`,
+      channelsLabel(a.channels),
+      a.codec.toUpperCase(),
+    ]
+      .filter(Boolean)
+      .join(' · ');
 
   /* ---------------------------- tap handling (mobile) ---------------------------- */
   const lastTap = useRef<{ t: number; x: number } | null>(null);
@@ -653,7 +739,8 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
     }, 280);
   };
 
-  const VolumeIcon = prefs.muted || prefs.volume === 0 ? VolumeX : prefs.volume < 0.5 ? Volume1 : Volume2;
+  const VolumeIcon =
+    prefs.muted || prefs.volume === 0 ? VolumeX : prefs.volume < 0.5 ? Volume1 : Volume2;
   const showUi = controls || !playing || !!menu;
 
   return (
@@ -674,7 +761,14 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
         {info.subtitles
           .filter((s) => s.url)
           .map((s) => (
-            <track key={s.id} id={s.id} kind="subtitles" src={s.url!} srcLang={s.language ?? undefined} label={s.label} />
+            <track
+              key={s.id}
+              id={s.id}
+              kind="subtitles"
+              src={s.url!}
+              srcLang={s.language ?? undefined}
+              label={s.label}
+            />
           ))}
       </video>
 
@@ -683,9 +777,16 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
 
       {/* Double-tap ripple */}
       {ripple && (
-        <div key={ripple.key} className={`pointer-events-none absolute top-1/2 -translate-y-1/2 animate-fade-in ${ripple.side === 'left' ? 'left-[12%]' : 'right-[12%]'}`}>
+        <div
+          key={ripple.key}
+          className={`pointer-events-none absolute top-1/2 -translate-y-1/2 animate-fade-in ${ripple.side === 'left' ? 'left-[12%]' : 'right-[12%]'}`}
+        >
           <div className="flex h-20 w-20 flex-col items-center justify-center rounded-full bg-white/15 text-xs font-semibold backdrop-blur">
-            {ripple.side === 'left' ? <RotateCcw className="mb-1 h-6 w-6" /> : <RotateCw className="mb-1 h-6 w-6" />}
+            {ripple.side === 'left' ? (
+              <RotateCcw className="mb-1 h-6 w-6" />
+            ) : (
+              <RotateCw className="mb-1 h-6 w-6" />
+            )}
             10s
           </div>
         </div>
@@ -698,7 +799,12 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
       )}
 
       {needsGesture && !fatal && (
-        <button type="button" onClick={togglePlay} aria-label="Play" className="absolute top-1/2 left-1/2 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-2xl transition hover:scale-105">
+        <button
+          type="button"
+          onClick={togglePlay}
+          aria-label="Play"
+          className="absolute top-1/2 left-1/2 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-2xl transition hover:scale-105"
+        >
           <Play className="ml-1 h-10 w-10 fill-current" />
         </button>
       )}
@@ -717,7 +823,11 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
             >
               Retry
             </button>
-            <button type="button" onClick={onExit} className="rounded-full border border-white/30 px-6 py-2.5">
+            <button
+              type="button"
+              onClick={onExit}
+              className="rounded-full border border-white/30 px-6 py-2.5"
+            >
               Back
             </button>
           </div>
@@ -747,7 +857,9 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
           <p>mode: {info.mode}</p>
           <p className="text-white/60">{info.reason}</p>
           <p>quality: {info.isHls ? (levels[autoLevel]?.height ?? '?') + 'p' : 'original'}</p>
-          <p>video: {video.current?.videoWidth}×{video.current?.videoHeight}</p>
+          <p>
+            video: {video.current?.videoWidth}×{video.current?.videoHeight}
+          </p>
           <p>buffer: {(buffered - current).toFixed(1)}s</p>
           <p>audio: {activeAudio ? audioLabel(activeAudio) : '—'}</p>
         </div>
@@ -756,17 +868,28 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
       {/* Next episode card */}
       {nearEnd && info.next && (
         <div className="glass absolute right-4 bottom-28 z-10 w-72 overflow-hidden rounded-2xl shadow-2xl animate-rise-in md:right-10 md:w-80">
-          {info.next.thumbUrl && <img src={info.next.thumbUrl} alt="" className="aspect-video w-full object-cover" />}
+          {info.next.thumbUrl && (
+            <img src={info.next.thumbUrl} alt="" className="aspect-video w-full object-cover" />
+          )}
           <div className="p-4">
             <p className="text-xs tracking-wider text-brand-300 uppercase">Next episode</p>
             <p className="mt-1 font-medium">
               S{info.next.seasonNumber}:E{info.next.episodeNumber} · {info.next.title}
             </p>
             <div className="mt-3 flex gap-2">
-              <button type="button" onClick={goNext} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-white py-2 text-sm font-semibold text-black">
-                <Play className="h-4 w-4 fill-current" /> {nextCountdown != null ? `Play in ${nextCountdown}s` : 'Play now'}
+              <button
+                type="button"
+                onClick={goNext}
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-white py-2 text-sm font-semibold text-black"
+              >
+                <Play className="h-4 w-4 fill-current" />{' '}
+                {nextCountdown != null ? `Play in ${nextCountdown}s` : 'Play now'}
               </button>
-              <button type="button" onClick={() => setNextDismissed(true)} className="rounded-lg border border-white/25 px-3 text-sm">
+              <button
+                type="button"
+                onClick={() => setNextDismissed(true)}
+                className="rounded-lg border border-white/25 px-3 text-sm"
+              >
                 Hide
               </button>
             </div>
@@ -775,12 +898,19 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
       )}
 
       {/* Controls */}
-      <div className={`pointer-events-none absolute inset-0 transition-opacity duration-300 ${showUi ? 'opacity-100' : 'opacity-0'}`}>
+      <div
+        className={`pointer-events-none absolute inset-0 transition-opacity duration-300 ${showUi ? 'opacity-100' : 'opacity-0'}`}
+      >
         <div className="absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-black/80 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/90 to-transparent" />
 
         <div className="pointer-events-auto absolute inset-x-0 top-0 flex items-center gap-3 px-4 pt-[max(1rem,env(safe-area-inset-top))] md:px-8 md:pt-6">
-          <button type="button" onClick={onExit} aria-label="Back" className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/10">
+          <button
+            type="button"
+            onClick={onExit}
+            aria-label="Back"
+            className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/10"
+          >
             <ArrowLeft className="h-6 w-6" />
           </button>
           <div className="min-w-0">
@@ -791,20 +921,41 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
 
         {/* Centre transport (touch/TV friendly) */}
         <div className="pointer-events-auto absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-8 md:gap-14">
-          <button type="button" onClick={() => skip(-10)} aria-label="Back 10 seconds" className="flex h-14 w-14 items-center justify-center rounded-full bg-black/30 backdrop-blur hover:bg-white/15">
+          <button
+            type="button"
+            onClick={() => skip(-10)}
+            aria-label="Back 10 seconds"
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-black/30 backdrop-blur hover:bg-white/15"
+          >
             <RotateCcw className="h-7 w-7" />
           </button>
-          <button type="button" onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'} className="flex h-20 w-20 items-center justify-center rounded-full bg-white/15 backdrop-blur hover:bg-white/25">
-            {playing ? <Pause className="h-9 w-9 fill-current" /> : <Play className="ml-1 h-9 w-9 fill-current" />}
+          <button
+            type="button"
+            onClick={togglePlay}
+            aria-label={playing ? 'Pause' : 'Play'}
+            className="flex h-20 w-20 items-center justify-center rounded-full bg-white/15 backdrop-blur hover:bg-white/25"
+          >
+            {playing ? (
+              <Pause className="h-9 w-9 fill-current" />
+            ) : (
+              <Play className="ml-1 h-9 w-9 fill-current" />
+            )}
           </button>
-          <button type="button" onClick={() => skip(10)} aria-label="Forward 10 seconds" className="flex h-14 w-14 items-center justify-center rounded-full bg-black/30 backdrop-blur hover:bg-white/15">
+          <button
+            type="button"
+            onClick={() => skip(10)}
+            aria-label="Forward 10 seconds"
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-black/30 backdrop-blur hover:bg-white/15"
+          >
             <RotateCw className="h-7 w-7" />
           </button>
         </div>
 
         <div className="pointer-events-auto absolute inset-x-0 bottom-0 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-8 md:pb-6">
           <div className="flex items-center gap-3 md:gap-4">
-            <span className="w-14 text-right font-mono text-xs text-white/85 tabular-nums md:text-sm">{formatTimecode(current)}</span>
+            <span className="w-14 text-right font-mono text-xs text-white/85 tabular-nums md:text-sm">
+              {formatTimecode(current)}
+            </span>
             <div className="flex-1">
               <SeekBar
                 current={current}
@@ -817,20 +968,37 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
                 }}
               />
             </div>
-            <span className="w-14 font-mono text-xs text-white/60 tabular-nums md:text-sm">-{formatTimecode(Math.max(0, duration - current))}</span>
+            <span className="w-14 font-mono text-xs text-white/60 tabular-nums md:text-sm">
+              -{formatTimecode(Math.max(0, duration - current))}
+            </span>
           </div>
           <div className="mt-2 flex items-center gap-1 md:gap-2">
             <CtlButton label={playing ? 'Pause (K)' : 'Play (K)'} onClick={togglePlay}>
-              {playing ? <Pause className="h-6 w-6 fill-current" /> : <Play className="h-6 w-6 fill-current" />}
+              {playing ? (
+                <Pause className="h-6 w-6 fill-current" />
+              ) : (
+                <Play className="h-6 w-6 fill-current" />
+              )}
             </CtlButton>
-            <CtlButton label="Back 10 seconds (J)" onClick={() => skip(-10)} className="hidden sm:flex">
+            <CtlButton
+              label="Back 10 seconds (J)"
+              onClick={() => skip(-10)}
+              className="hidden sm:flex"
+            >
               <RotateCcw className="h-5 w-5" />
             </CtlButton>
-            <CtlButton label="Forward 10 seconds (L)" onClick={() => skip(10)} className="hidden sm:flex">
+            <CtlButton
+              label="Forward 10 seconds (L)"
+              onClick={() => skip(10)}
+              className="hidden sm:flex"
+            >
               <RotateCw className="h-5 w-5" />
             </CtlButton>
             <div className="group/vol flex items-center">
-              <CtlButton label={prefs.muted ? 'Unmute (M)' : 'Mute (M)'} onClick={() => video.current && (video.current.muted = !video.current.muted)}>
+              <CtlButton
+                label={prefs.muted ? 'Unmute (M)' : 'Mute (M)'}
+                onClick={() => video.current && (video.current.muted = !video.current.muted)}
+              >
                 <VolumeIcon className="h-6 w-6" />
               </CtlButton>
               <input
@@ -852,19 +1020,34 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
             )}
             <div className="ml-auto flex items-center gap-1 md:gap-2">
               {info.subtitles.some((s) => s.url) && (
-                <CtlButton label="Subtitles (C)" onClick={() => setMenu(menu === 'subtitles' ? null : 'subtitles')} active={!!activeSubtitle}>
+                <CtlButton
+                  label="Subtitles (C)"
+                  onClick={() => setMenu(menu === 'subtitles' ? null : 'subtitles')}
+                  active={!!activeSubtitle}
+                >
                   <Captions className="h-6 w-6" />
                 </CtlButton>
               )}
-              <CtlButton label="Settings" onClick={() => setMenu(menu ? null : 'root')} active={!!menu && menu !== 'subtitles'}>
+              <CtlButton
+                label="Settings"
+                onClick={() => setMenu(menu ? null : 'root')}
+                active={!!menu && menu !== 'subtitles'}
+              >
                 <Settings className="h-6 w-6" />
               </CtlButton>
               {typeof document !== 'undefined' && document.pictureInPictureEnabled && (
-                <CtlButton label="Picture in picture (P)" onClick={() => void togglePip()} className="hidden sm:flex">
+                <CtlButton
+                  label="Picture in picture (P)"
+                  onClick={() => void togglePip()}
+                  className="hidden sm:flex"
+                >
                   <PictureInPicture2 className="h-6 w-6" />
                 </CtlButton>
               )}
-              <CtlButton label={fullscreen ? 'Exit full screen (F)' : 'Full screen (F)'} onClick={() => void toggleFullscreen()}>
+              <CtlButton
+                label={fullscreen ? 'Exit full screen (F)' : 'Full screen (F)'}
+                onClick={() => void toggleFullscreen()}
+              >
                 {fullscreen ? <Minimize className="h-6 w-6" /> : <Maximize className="h-6 w-6" />}
               </CtlButton>
             </div>
@@ -872,28 +1055,87 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
         </div>
 
         {menu && (
-          <div role="menu" className="glass pointer-events-auto absolute right-4 bottom-28 max-h-[60vh] w-72 overflow-y-auto rounded-2xl py-2 shadow-2xl md:right-8" data-nav-scope>
+          <div
+            role="menu"
+            className="glass pointer-events-auto absolute right-4 bottom-28 max-h-[60vh] w-72 overflow-y-auto rounded-2xl py-2 shadow-2xl md:right-8"
+            data-nav-scope
+          >
             {menu === 'root' && (
               <>
-                <MenuRow icon={<Gauge className="h-5 w-5" />} label="Quality" value={qualityItems.find((q) => q.active)?.label ?? 'Auto'} onClick={() => setMenu('quality')} />
+                <MenuRow
+                  icon={<Gauge className="h-5 w-5" />}
+                  label="Quality"
+                  value={qualityItems.find((q) => q.active)?.label ?? 'Auto'}
+                  onClick={() => setMenu('quality')}
+                />
                 {info.audioTracks.length > 1 && (
-                  <MenuRow icon={<Languages className="h-5 w-5" />} label="Audio" value={activeAudio ? (activeAudio.title ?? languageName(activeAudio.language) ?? `Track ${activeAudio.index + 1}`) : '—'} onClick={() => setMenu('audio')} />
+                  <MenuRow
+                    icon={<Languages className="h-5 w-5" />}
+                    label="Audio"
+                    value={
+                      activeAudio
+                        ? (activeAudio.title ??
+                          languageName(activeAudio.language) ??
+                          `Track ${activeAudio.index + 1}`)
+                        : '—'
+                    }
+                    onClick={() => setMenu('audio')}
+                  />
                 )}
-                {info.subtitles.some((s) => s.url) && <MenuRow icon={<Captions className="h-5 w-5" />} label="Subtitles" value={activeSubtitle?.label ?? 'Off'} onClick={() => setMenu('subtitles')} />}
-                <MenuRow icon={<RotateCw className="h-5 w-5" />} label="Speed" value={`${prefs.playbackRate}×`} onClick={() => setMenu('speed')} />
+                {info.subtitles.some((s) => s.url) && (
+                  <MenuRow
+                    icon={<Captions className="h-5 w-5" />}
+                    label="Subtitles"
+                    value={activeSubtitle?.label ?? 'Off'}
+                    onClick={() => setMenu('subtitles')}
+                  />
+                )}
+                <MenuRow
+                  icon={<RotateCw className="h-5 w-5" />}
+                  label="Speed"
+                  value={`${prefs.playbackRate}×`}
+                  onClick={() => setMenu('speed')}
+                />
                 {info.next && (
-                  <button type="button" role="menuitemcheckbox" aria-checked={prefs.autoplayNext} onClick={() => prefs.set({ autoplayNext: !prefs.autoplayNext })} className="flex w-full items-center justify-between px-4 py-2.5 text-sm hover:bg-white/10">
+                  <button
+                    type="button"
+                    role="menuitemcheckbox"
+                    aria-checked={prefs.autoplayNext}
+                    onClick={() => prefs.set({ autoplayNext: !prefs.autoplayNext })}
+                    className="flex w-full items-center justify-between px-4 py-2.5 text-sm hover:bg-white/10"
+                  >
                     Autoplay next episode
-                    <span className={`h-5 w-9 rounded-full p-0.5 transition ${prefs.autoplayNext ? 'bg-brand-500' : 'bg-white/25'}`}>
-                      <span className={`block h-4 w-4 rounded-full bg-white transition ${prefs.autoplayNext ? 'translate-x-4' : ''}`} />
+                    <span
+                      className={`h-5 w-9 rounded-full p-0.5 transition ${prefs.autoplayNext ? 'bg-brand-500' : 'bg-white/25'}`}
+                    >
+                      <span
+                        className={`block h-4 w-4 rounded-full bg-white transition ${prefs.autoplayNext ? 'translate-x-4' : ''}`}
+                      />
                     </span>
                   </button>
                 )}
-                <MenuRow icon={<Info className="h-5 w-5" />} label="Playback info" value={showStats ? 'On' : 'Off'} onClick={() => setShowStats((s) => !s)} />
+                <MenuRow
+                  icon={<Info className="h-5 w-5" />}
+                  label="Playback info"
+                  value={showStats ? 'On' : 'Off'}
+                  onClick={() => setShowStats((s) => !s)}
+                />
               </>
             )}
             {menu === 'quality' && (
-              <MenuList title="Quality" onBack={() => setMenu('root')} items={qualityItems.map((q) => ({ key: q.key, label: q.label, active: q.active, onClick: () => { q.pick(); setMenu(null); } }))} />
+              <MenuList
+                title="Quality"
+                onBack={() => setMenu('root')}
+                items={qualityItems.map((q) => ({
+                  key: q.key,
+                  label: q.label,
+                  active: q.active,
+                  onClick: () => {
+                    q.pick();
+                    setMenu(null);
+                  },
+                }))}
+              />
             )}
             {menu === 'audio' && (
               <MenuList
@@ -905,7 +1147,8 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
                   active: a.index === info.audioIndex,
                   onClick: () => {
                     setMenu(null);
-                    if (a.index !== info.audioIndex) onChangeSource({ audio: a.index }, video.current?.currentTime ?? 0);
+                    if (a.index !== info.audioIndex)
+                      onChangeSource({ audio: a.index }, video.current?.currentTime ?? 0);
                   },
                 }))}
               />
@@ -915,7 +1158,16 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
                 title="Subtitles"
                 onBack={() => setMenu('root')}
                 items={[
-                  { key: 'off', label: 'Off', active: !subtitleId, onClick: () => { setSubtitleId(null); prefs.set({ subtitleLang: null }); setMenu(null); } },
+                  {
+                    key: 'off',
+                    label: 'Off',
+                    active: !subtitleId,
+                    onClick: () => {
+                      setSubtitleId(null);
+                      prefs.set({ subtitleLang: null });
+                      setMenu(null);
+                    },
+                  },
                   ...info.subtitles
                     .filter((s) => s.url)
                     .map((s) => ({
@@ -950,12 +1202,28 @@ function Player({ info, startAt, resumed, switching, onExit, onChangeSource, onN
           </div>
         )}
       </div>
-      {scrubbing && <div className="sr-only" aria-live="polite">{formatTimecode(current)}</div>}
+      {scrubbing && (
+        <div className="sr-only" aria-live="polite">
+          {formatTimecode(current)}
+        </div>
+      )}
     </div>
   );
 }
 
-function CtlButton({ label, onClick, children, className = '', active }: { label: string; onClick: () => void; children: React.ReactNode; className?: string; active?: boolean }) {
+function CtlButton({
+  label,
+  onClick,
+  children,
+  className = '',
+  active,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+  className?: string;
+  active?: boolean;
+}) {
   return (
     <button
       type="button"
@@ -969,9 +1237,24 @@ function CtlButton({ label, onClick, children, className = '', active }: { label
   );
 }
 
-function MenuRow({ icon, label, value, onClick }: { icon: React.ReactNode; label: string; value: string; onClick: () => void }) {
+function MenuRow({
+  icon,
+  label,
+  value,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  onClick: () => void;
+}) {
   return (
-    <button type="button" role="menuitem" onClick={onClick} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-white/10 focus-visible:bg-white/10">
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-white/10 focus-visible:bg-white/10"
+    >
       <span className="text-white/70">{icon}</span>
       <span className="flex-1">{label}</span>
       <span className="max-w-28 truncate text-white/60">{value}</span>
@@ -980,14 +1263,33 @@ function MenuRow({ icon, label, value, onClick }: { icon: React.ReactNode; label
   );
 }
 
-function MenuList({ title, items, onBack }: { title: string; onBack: () => void; items: { key: string; label: string; active: boolean; onClick: () => void }[] }) {
+function MenuList({
+  title,
+  items,
+  onBack,
+}: {
+  title: string;
+  onBack: () => void;
+  items: { key: string; label: string; active: boolean; onClick: () => void }[];
+}) {
   return (
     <div>
-      <button type="button" onClick={onBack} className="flex w-full items-center gap-2 border-b border-white/10 px-4 pt-1 pb-2.5 text-sm font-semibold hover:text-white/80">
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex w-full items-center gap-2 border-b border-white/10 px-4 pt-1 pb-2.5 text-sm font-semibold hover:text-white/80"
+      >
         <ArrowLeft className="h-4 w-4" /> {title}
       </button>
       {items.map((it) => (
-        <button key={it.key} type="button" role="menuitemradio" aria-checked={it.active} onClick={it.onClick} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-white/10 focus-visible:bg-white/10">
+        <button
+          key={it.key}
+          type="button"
+          role="menuitemradio"
+          aria-checked={it.active}
+          onClick={it.onClick}
+          className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-white/10 focus-visible:bg-white/10"
+        >
           <span className="w-4">{it.active && <Check className="h-4 w-4 text-brand-400" />}</span>
           <span className="flex-1 truncate">{it.label}</span>
         </button>

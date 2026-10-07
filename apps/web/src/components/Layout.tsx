@@ -1,5 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
-import { Bookmark, Clapperboard, Home, LayoutGrid, QrCode, Search, Settings2, Tv, Users, WifiOff } from 'lucide-react';
+import {
+  Bookmark,
+  Clapperboard,
+  Home,
+  LayoutGrid,
+  QrCode,
+  Search,
+  Settings2,
+  Tv,
+  Users,
+  WifiOff,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { api } from '../lib/api';
@@ -44,8 +55,13 @@ function ProfileMenu() {
         {(current?.name ?? 'H').slice(0, 1).toUpperCase()}
       </button>
       {open && (
-        <div role="menu" className="glass absolute top-12 right-0 z-50 w-56 overflow-hidden rounded-2xl py-1.5 shadow-2xl shadow-black/60 animate-fade-in">
-          <p className="px-4 pt-1.5 pb-2 text-xs text-muted">Watching as <span className="font-semibold text-fg">{current?.name}</span></p>
+        <div
+          role="menu"
+          className="glass absolute top-12 right-0 z-50 w-56 overflow-hidden rounded-2xl py-1.5 shadow-2xl shadow-black/60 animate-fade-in"
+        >
+          <p className="px-4 pt-1.5 pb-2 text-xs text-muted">
+            Watching as <span className="font-semibold text-fg">{current?.name}</span>
+          </p>
           {[
             { to: '/profiles', label: 'Switch profile', icon: Users, onClick: clear },
             { to: '/connect', label: 'Connect a device', icon: QrCode },
@@ -81,9 +97,16 @@ function ServerStatus() {
   });
   if (!isError) return null;
   return (
-    <div role="alert" className="fixed inset-x-0 top-0 z-[60] flex items-center justify-center gap-3 bg-bad/95 px-4 py-2 text-sm font-medium text-white">
+    <div
+      role="alert"
+      className="fixed inset-x-0 top-0 z-[60] flex items-center justify-center gap-3 bg-bad/95 px-4 py-2 text-sm font-medium text-white"
+    >
       <WifiOff className="h-4 w-4" /> Can’t reach the TaazaStream server — check your Wi-Fi.
-      <button type="button" onClick={() => void refetch()} className="rounded-full bg-white/20 px-3 py-0.5 hover:bg-white/30">
+      <button
+        type="button"
+        onClick={() => void refetch()}
+        className="rounded-full bg-white/20 px-3 py-0.5 hover:bg-white/30"
+      >
         Retry
       </button>
     </div>
@@ -103,13 +126,18 @@ export function Layout() {
 
   return (
     <div className="min-h-dvh pb-[calc(4.25rem+env(safe-area-inset-bottom))] md:pb-0">
-      <a href="#main" className="sr-only z-[70] rounded bg-white px-3 py-2 text-black focus:not-sr-only focus:fixed focus:top-3 focus:left-3">
+      <a
+        href="#main"
+        className="sr-only z-[70] rounded bg-white px-3 py-2 text-black focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+      >
         Skip to content
       </a>
       <ServerStatus />
       <header
         className={`fixed inset-x-0 top-0 z-40 transition-colors duration-300 ${
-          scrolled || !transparentTop ? 'border-b border-line bg-ink/85 backdrop-blur-xl' : 'bg-gradient-to-b from-black/70 to-transparent'
+          scrolled || !transparentTop
+            ? 'border-b border-line bg-ink/85 backdrop-blur-xl'
+            : 'bg-gradient-to-b from-black/70 to-transparent'
         }`}
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
@@ -178,7 +206,9 @@ export function Layout() {
               key={n.to}
               to={n.to}
               end={'end' in n ? n.end : false}
-              className={({ isActive }) => `flex flex-col items-center justify-center gap-1 text-[0.68rem] font-medium ${isActive ? 'text-white' : 'text-white/55'}`}
+              className={({ isActive }) =>
+                `flex flex-col items-center justify-center gap-1 text-[0.68rem] font-medium ${isActive ? 'text-white' : 'text-white/55'}`
+              }
             >
               {({ isActive }) => (
                 <>

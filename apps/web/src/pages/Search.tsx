@@ -20,7 +20,8 @@ export default function SearchPage() {
       <PageHeader title={q ? `Results for “${q}”` : 'Search'} />
       {!q ? (
         <EmptyState icon={<SearchIcon className="h-7 w-7" />} title="Find something to watch">
-          Search by title, genre, year, cast or description. Search runs on your server, so it works without internet.
+          Search by title, genre, year, cast or description. Search runs on your server, so it works
+          without internet.
         </EmptyState>
       ) : isLoading ? (
         <GridSkeleton count={12} />
@@ -31,7 +32,11 @@ export default function SearchPage() {
           {data && data.genres.length > 0 && (
             <div className="mb-6 flex flex-wrap gap-2">
               {data.genres.map((g) => (
-                <Link key={g.id} to={`/genre/${g.slug}`} className="rounded-full border border-brand-500/40 bg-brand-500/10 px-4 py-1.5 text-sm text-brand-300">
+                <Link
+                  key={g.id}
+                  to={`/genre/${g.slug}`}
+                  className="rounded-full border border-brand-500/40 bg-brand-500/10 px-4 py-1.5 text-sm text-brand-300"
+                >
                   Genre: {g.name}
                 </Link>
               ))}
@@ -63,7 +68,9 @@ export function MyListPage() {
       ) : data?.length ? (
         <TitleGrid items={data} />
       ) : (
-        <EmptyState title="Your list is empty">Tap “My List” on any movie or series to save it here for later.</EmptyState>
+        <EmptyState title="Your list is empty">
+          Tap “My List” on any movie or series to save it here for later.
+        </EmptyState>
       )}
     </div>
   );

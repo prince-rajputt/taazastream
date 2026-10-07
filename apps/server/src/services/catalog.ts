@@ -25,7 +25,9 @@ const img = LocalImageServer.urlFor;
 /** Only titles with at least one healthy, present file are shown to viewers. */
 export const playableVideo: Prisma.VideoFileWhereInput = { missing: false, probeError: null };
 export const playableMovie: Prisma.MovieWhereInput = { videos: { some: playableVideo } };
-export const playableSeries: Prisma.SeriesWhereInput = { episodes: { some: { videos: { some: playableVideo } } } };
+export const playableSeries: Prisma.SeriesWhereInput = {
+  episodes: { some: { videos: { some: playableVideo } } },
+};
 
 const movieCardInclude = {
   genres: { select: { name: true } },
@@ -58,7 +60,10 @@ export function parseCast(json: string): CastMember[] {
   }
 }
 
-function progressOf(row: { videoFileId: string; positionSec: number; durationSec: number; updatedAt: Date } | undefined): ProgressInfo | null {
+function progressOf(
+  row:
+    { videoFileId: string; positionSec: number; durationSec: number; updatedAt: Date } | undefined,
+): ProgressInfo | null {
   if (!row || row.durationSec <= 0) return null;
   return {
     videoId: row.videoFileId,
@@ -141,13 +146,19 @@ export class CatalogService {
         select: { movieId: true, seriesId: true },
       }),
       this.db.continueWatching.findMany({
-        where: { userId, OR: [{ movieId: { in: movieIds } }, { seriesId: { in: seriesIds } }], hidden: false },
+        where: {
+          userId,
+          OR: [{ movieId: { in: movieIds } }, { seriesId: { in: seriesIds } }],
+          hidden: false,
+        },
         orderBy: { updatedAt: 'desc' },
       }),
     ]);
     const favSet = new Set(favs.map((f) => f.movieId ?? f.seriesId));
     return cards.map((c) => {
-      const p = progress.find((x) => (c.kind === 'movie' ? x.movieId === c.id : x.seriesId === c.id));
+      const p = progress.find((x) =>
+        c.kind === 'movie' ? x.movieId === c.id : x.seriesId === c.id,
+      );
       return {
         ...c,
         inMyList: favSet.has(c.id),
@@ -164,11 +175,27 @@ export class CatalogService {
       orderBy: { name: 'asc' },
     });
     return rows
-      .map((g) => ({ id: g.id, name: g.name, slug: g.slug, count: g._count.movies + g._count.series }))
+      .map((g) => ({
+        id: g.id,
+        name: g.name,
+        slug: g.slug,
+        count: g._count.movies + g._count.series,
+      }))
       .filter((g) => g.count > 0);
   }
 
-  private subtitleInfo(videoId: string, s: { id: string; language: string | null; label: string; format: string; source: string; isDefault: boolean; forced: boolean }): SubtitleInfo {
+  private subtitleInfo(
+    videoId: string,
+    s: {
+      id: string;
+      language: string | null;
+      label: string;
+      format: string;
+      source: string;
+      isDefault: boolean;
+      forced: boolean;
+    },
+  ): SubtitleInfo {
     return {
       id: s.id,
       language: s.language,
@@ -181,7 +208,9 @@ export class CatalogService {
     };
   }
 
-  videoInfo(v: Prisma.VideoFileGetPayload<{ include: { audioTracks: true; subtitles: true } }>): VideoInfo {
+  videoInfo(
+    v: Prisma.VideoFileGetPayload<{ include: { audioTracks: true; subtitles: true } }>,
+  ): VideoInfo {
     return {
       id: v.id,
       fileName: v.fileName,
@@ -197,7 +226,14 @@ export class CatalogService {
       bitDepth: v.bitDepth,
       audioTracks: v.audioTracks
         .sort((a, b) => a.index - b.index)
-        .map((a) => ({ index: a.index, codec: a.codec, language: a.language, title: a.title, channels: a.channels, isDefault: a.isDefault })),
+        .map((a) => ({
+          index: a.index,
+          codec: a.codec,
+          language: a.language,
+          title: a.title,
+          channels: a.channels,
+          isDefault: a.isDefault,
+        })),
       subtitles: v.subtitles.map((s) => this.subtitleInfo(v.id, s)),
       available: !v.missing && !v.probeError,
     };
@@ -208,12 +244,20 @@ export class CatalogService {
       where: { id },
       include: {
         genres: { select: { name: true } },
-        videos: { include: { audioTracks: true, subtitles: true }, orderBy: [{ missing: 'asc' }, { height: 'desc' }] },
+        videos: {
+          include: { audioTracks: true, subtitles: true },
+          orderBy: [{ missing: 'asc' }, { height: 'desc' }],
+        },
       },
     });
     if (!m) throw notFound('Movie');
     const playable = m.videos.filter((v) => !v.missing && !v.probeError);
-    const card = this.movieCard({ ...m, videos: playable.slice(0, 1).map((v) => ({ id: v.id, durationSec: v.durationSec, height: v.height })) });
+    const card = this.movieCard({
+      ...m,
+      videos: playable
+        .slice(0, 1)
+        .map((v) => ({ id: v.id, durationSec: v.durationSec, height: v.height })),
+    });
     const [decorated] = await this.decorate([card], userId);
     const genreNames = m.genres.map((g) => g.name);
     const related = await this.related('movie', m.id, genreNames, userId);
@@ -228,15 +272,32 @@ export class CatalogService {
     };
   }
 
-  async related(kind: 'movie' | 'series', excludeId: string, genres: string[], userId: string): Promise<TitleCard[]> {
+  async related(
+    kind: 'movie' | 'series',
+    excludeId: string,
+    genres: string[],
+    userId: string,
+  ): Promise<TitleCard[]> {
     const byGenre = genres.length ? { genres: { some: { name: { in: genres } } } } : {};
     const [movies, series] = await Promise.all([
-      this.movies({ where: { ...byGenre, id: kind === 'movie' ? { not: excludeId } : undefined }, take: 12, orderBy: { playCount: 'desc' } }),
-      this.series({ where: { ...byGenre, id: kind === 'series' ? { not: excludeId } : undefined }, take: 6, orderBy: { playCount: 'desc' } }),
+      this.movies({
+        where: { ...byGenre, id: kind === 'movie' ? { not: excludeId } : undefined },
+        take: 12,
+        orderBy: { playCount: 'desc' },
+      }),
+      this.series({
+        where: { ...byGenre, id: kind === 'series' ? { not: excludeId } : undefined },
+        take: 6,
+        orderBy: { playCount: 'desc' },
+      }),
     ]);
     let items = [...movies, ...series];
     if (items.length < 6) {
-      const fill = await this.movies({ where: { id: { notIn: [excludeId, ...items.map((i) => i.id)] } }, take: 12 - items.length, orderBy: { addedAt: 'desc' } });
+      const fill = await this.movies({
+        where: { id: { notIn: [excludeId, ...items.map((i) => i.id)] } },
+        take: 12 - items.length,
+        orderBy: { addedAt: 'desc' },
+      });
       items = [...items, ...fill];
     }
     return this.decorate(items.slice(0, 12), userId);
@@ -252,7 +313,13 @@ export class CatalogService {
           include: {
             episodes: {
               orderBy: { number: 'asc' },
-              include: { videos: { where: playableVideo, select: { id: true, durationSec: true, thumbImage: true }, take: 1 } },
+              include: {
+                videos: {
+                  where: playableVideo,
+                  select: { id: true, durationSec: true, thumbImage: true },
+                  take: 1,
+                },
+              },
             },
           },
         },
@@ -287,7 +354,9 @@ export class CatalogService {
               thumbUrl: img(e.thumbImage ?? v.thumbImage),
               videoId: v.id,
               airDate: e.airDate?.toISOString() ?? null,
-              progress: p ? { ...progressOf(p)!, percent: p.completed ? 1 : progressOf(p)!.percent } : null,
+              progress: p
+                ? { ...progressOf(p)!, percent: p.completed ? 1 : progressOf(p)!.percent }
+                : null,
             };
           }),
       }))
@@ -302,7 +371,12 @@ export class CatalogService {
     }
 
     const [card] = await this.decorate([this.seriesCard(s)], userId);
-    const related = await this.related('series', s.id, s.genres.map((g) => g.name), userId);
+    const related = await this.related(
+      'series',
+      s.id,
+      s.genres.map((g) => g.name),
+      userId,
+    );
     return { ...card!, kind: 'series', cast: parseCast(s.cast), seasons, related, nextUp };
   }
 
@@ -313,9 +387,22 @@ export class CatalogService {
       orderBy: { updatedAt: 'desc' },
       take: 100,
       include: {
-        movie: { select: { id: true, title: true, backdropImage: true, posterImage: true, accent: true } },
-        series: { select: { id: true, title: true, backdropImage: true, posterImage: true, accent: true } },
-        episode: { select: { id: true, number: true, title: true, thumbImage: true, seasonId: true, season: { select: { number: true } } } },
+        movie: {
+          select: { id: true, title: true, backdropImage: true, posterImage: true, accent: true },
+        },
+        series: {
+          select: { id: true, title: true, backdropImage: true, posterImage: true, accent: true },
+        },
+        episode: {
+          select: {
+            id: true,
+            number: true,
+            title: true,
+            thumbImage: true,
+            seasonId: true,
+            season: { select: { number: true } },
+          },
+        },
         videoFile: { select: { thumbImage: true } },
       },
     });
@@ -380,7 +467,10 @@ export class CatalogService {
   /** The episode after `episodeId` (crossing season boundaries) with a playable file. */
   async nextEpisode(episodeId: string | null) {
     if (!episodeId) return null;
-    const ep = await this.db.episode.findUnique({ where: { id: episodeId }, include: { season: true } });
+    const ep = await this.db.episode.findUnique({
+      where: { id: episodeId },
+      include: { season: true },
+    });
     if (!ep) return null;
     const candidates = await this.db.episode.findMany({
       where: {
@@ -403,7 +493,10 @@ export class CatalogService {
   }
 
   async myList(userId: string): Promise<TitleCard[]> {
-    const favs = await this.db.favorite.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });
+    const favs = await this.db.favorite.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
     const movieIds = favs.map((f) => f.movieId).filter((x): x is string => !!x);
     const seriesIds = favs.map((f) => f.seriesId).filter((x): x is string => !!x);
     const [movies, series] = await Promise.all([
@@ -411,31 +504,47 @@ export class CatalogService {
       this.series({ where: { id: { in: seriesIds } } }),
     ]);
     const order = new Map(favs.map((f, i) => [f.movieId ?? f.seriesId, i]));
-    const cards = [...movies, ...series].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+    const cards = [...movies, ...series].sort(
+      (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0),
+    );
     return this.decorate(cards, userId);
   }
 
   async home(userId: string): Promise<HomeFeed> {
     const since = new Date(Date.now() - 21 * 24 * 3600_000);
-    const [continueItems, recentMovies, recentSeries, popularMovies, popularSeries, newReleases, featured, myList, genres, trendingRows] =
-      await Promise.all([
-        this.continueWatching(userId),
-        this.movies({ orderBy: { addedAt: 'desc' }, take: 24 }),
-        this.series({ orderBy: { addedAt: 'desc' }, take: 24 }),
-        this.movies({ orderBy: [{ playCount: 'desc' }, { rating: 'desc' }], take: 24 }),
-        this.series({ orderBy: [{ playCount: 'desc' }, { rating: 'desc' }], take: 24 }),
-        this.movies({ where: { year: { not: null } }, orderBy: [{ year: 'desc' }, { addedAt: 'desc' }], take: 24 }),
-        this.movies({ where: { featured: true }, take: 6 }),
-        this.myList(userId),
-        this.genres(),
-        this.db.watchHistory.groupBy({
-          by: ['videoFileId'],
-          where: { startedAt: { gte: since } },
-          _count: { videoFileId: true },
-          orderBy: { _count: { videoFileId: 'desc' } },
-          take: 60,
-        }),
-      ]);
+    const [
+      continueItems,
+      recentMovies,
+      recentSeries,
+      popularMovies,
+      popularSeries,
+      newReleases,
+      featured,
+      myList,
+      genres,
+      trendingRows,
+    ] = await Promise.all([
+      this.continueWatching(userId),
+      this.movies({ orderBy: { addedAt: 'desc' }, take: 24 }),
+      this.series({ orderBy: { addedAt: 'desc' }, take: 24 }),
+      this.movies({ orderBy: [{ playCount: 'desc' }, { rating: 'desc' }], take: 24 }),
+      this.series({ orderBy: [{ playCount: 'desc' }, { rating: 'desc' }], take: 24 }),
+      this.movies({
+        where: { year: { not: null } },
+        orderBy: [{ year: 'desc' }, { addedAt: 'desc' }],
+        take: 24,
+      }),
+      this.movies({ where: { featured: true }, take: 6 }),
+      this.myList(userId),
+      this.genres(),
+      this.db.watchHistory.groupBy({
+        by: ['videoFileId'],
+        where: { startedAt: { gte: since } },
+        _count: { videoFileId: true },
+        orderBy: { _count: { videoFileId: 'desc' } },
+        take: 60,
+      }),
+    ]);
 
     const libraryEmpty = recentMovies.length === 0 && recentSeries.length === 0;
 
@@ -451,17 +560,27 @@ export class CatalogService {
       if (key) score.set(key, (score.get(key) ?? 0) + r._count.videoFileId);
     }
     const trendingIds = [...score.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k);
-    const trendingMovies = await this.movies({ where: { id: { in: trendingIds.filter((k) => k.startsWith('m:')).map((k) => k.slice(2)) } } });
-    const trendingSeries = await this.series({ where: { id: { in: trendingIds.filter((k) => k.startsWith('s:')).map((k) => k.slice(2)) } } });
+    const trendingMovies = await this.movies({
+      where: { id: { in: trendingIds.filter((k) => k.startsWith('m:')).map((k) => k.slice(2)) } },
+    });
+    const trendingSeries = await this.series({
+      where: { id: { in: trendingIds.filter((k) => k.startsWith('s:')).map((k) => k.slice(2)) } },
+    });
     let trending = [...trendingMovies, ...trendingSeries].sort(
-      (a, b) => trendingIds.indexOf(`${a.kind === 'movie' ? 'm' : 's'}:${a.id}`) - trendingIds.indexOf(`${b.kind === 'movie' ? 'm' : 's'}:${b.id}`),
+      (a, b) =>
+        trendingIds.indexOf(`${a.kind === 'movie' ? 'm' : 's'}:${a.id}`) -
+        trendingIds.indexOf(`${b.kind === 'movie' ? 'm' : 's'}:${b.id}`),
     );
     if (trending.length < 5) {
-      const fill = interleave(popularMovies, popularSeries).filter((c) => !trending.some((t) => t.id === c.id));
+      const fill = interleave(popularMovies, popularSeries).filter(
+        (c) => !trending.some((t) => t.id === c.id),
+      );
       trending = [...trending, ...fill].slice(0, 10);
     }
 
-    const recent = [...recentMovies, ...recentSeries].sort((a, b) => b.addedAt.localeCompare(a.addedAt)).slice(0, 24);
+    const recent = [...recentMovies, ...recentSeries]
+      .sort((a, b) => b.addedAt.localeCompare(a.addedAt))
+      .slice(0, 24);
     const heroPool = (featured.length ? featured : interleave(recentMovies, recentSeries))
       .filter((c) => c.backdropUrl)
       .slice(0, 6);
@@ -469,23 +588,78 @@ export class CatalogService {
 
     const rows: HomeRow[] = [];
     const push = async (row: Omit<HomeRow, 'items'> & { items: TitleCard[] }) => {
-      if (row.items.length || row.continueItems?.length) rows.push({ ...row, items: await this.decorate(row.items, userId) });
+      if (row.items.length || row.continueItems?.length)
+        rows.push({ ...row, items: await this.decorate(row.items, userId) });
     };
-    if (continueItems.length) rows.push({ id: 'continue', title: 'Continue Watching', variant: 'continue', items: [], continueItems });
-    await push({ id: 'trending', title: 'Trending Now', variant: 'ranked', items: trending.slice(0, 10) });
+    if (continueItems.length)
+      rows.push({
+        id: 'continue',
+        title: 'Continue Watching',
+        variant: 'continue',
+        items: [],
+        continueItems,
+      });
+    await push({
+      id: 'trending',
+      title: 'Trending Now',
+      variant: 'ranked',
+      items: trending.slice(0, 10),
+    });
     await push({ id: 'recent', title: 'Recently Added', variant: 'landscape', items: recent });
-    await push({ id: 'my-list', title: 'My List', variant: 'poster', items: myList, href: '/my-list' });
-    await push({ id: 'movies', title: 'Movies', variant: 'poster', items: recentMovies, href: '/movies' });
-    await push({ id: 'series', title: 'Series', variant: 'poster', items: recentSeries, href: '/series' });
-    await push({ id: 'popular', title: 'Popular on TaazaStream', variant: 'poster', items: interleave(popularMovies, popularSeries).slice(0, 24) });
-    await push({ id: 'new-releases', title: 'New Releases', variant: 'landscape', items: newReleases });
+    await push({
+      id: 'my-list',
+      title: 'My List',
+      variant: 'poster',
+      items: myList,
+      href: '/my-list',
+    });
+    await push({
+      id: 'movies',
+      title: 'Movies',
+      variant: 'poster',
+      items: recentMovies,
+      href: '/movies',
+    });
+    await push({
+      id: 'series',
+      title: 'Series',
+      variant: 'poster',
+      items: recentSeries,
+      href: '/series',
+    });
+    await push({
+      id: 'popular',
+      title: 'Popular on TaazaStream',
+      variant: 'poster',
+      items: interleave(popularMovies, popularSeries).slice(0, 24),
+    });
+    await push({
+      id: 'new-releases',
+      title: 'New Releases',
+      variant: 'landscape',
+      items: newReleases,
+    });
 
     for (const g of [...genres].sort((a, b) => b.count - a.count).slice(0, 6)) {
       const [gm, gs] = await Promise.all([
-        this.movies({ where: { genres: { some: { id: g.id } } }, take: 20, orderBy: { addedAt: 'desc' } }),
-        this.series({ where: { genres: { some: { id: g.id } } }, take: 10, orderBy: { addedAt: 'desc' } }),
+        this.movies({
+          where: { genres: { some: { id: g.id } } },
+          take: 20,
+          orderBy: { addedAt: 'desc' },
+        }),
+        this.series({
+          where: { genres: { some: { id: g.id } } },
+          take: 10,
+          orderBy: { addedAt: 'desc' },
+        }),
       ]);
-      await push({ id: `genre-${g.slug}`, title: g.name, variant: 'poster', items: interleave(gm, gs), href: `/genre/${g.slug}` });
+      await push({
+        id: `genre-${g.slug}`,
+        title: g.name,
+        variant: 'poster',
+        items: interleave(gm, gs),
+        href: `/genre/${g.slug}`,
+      });
     }
 
     return { hero, rows, genres, libraryEmpty };

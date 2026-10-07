@@ -12,5 +12,8 @@ const log = pino({ level: 'info' });
 const database = new LocalDatabase(config, log);
 await database.init();
 const files = await new BackupService(database.client, config.backupDir, log).create();
-for (const f of files) process.stdout.write(`  ${config.backupDir}\\${f.fileName}  (${Math.round(f.sizeBytes / 1024)} KB)\n`);
+for (const f of files)
+  process.stdout.write(
+    `  ${config.backupDir}\\${f.fileName}  (${Math.round(f.sizeBytes / 1024)} KB)\n`,
+  );
 await database.close();

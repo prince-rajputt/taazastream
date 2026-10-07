@@ -14,7 +14,12 @@ interface CastEntry {
 function castNames(json: string): string {
   try {
     const arr = JSON.parse(json) as CastEntry[];
-    return Array.isArray(arr) ? arr.map((c) => c?.name ?? '').filter(Boolean).join(' ') : '';
+    return Array.isArray(arr)
+      ? arr
+          .map((c) => c?.name ?? '')
+          .filter(Boolean)
+          .join(' ')
+      : '';
   } catch {
     return '';
   }
@@ -50,7 +55,11 @@ export class SearchService {
   async indexMovie(id: string): Promise<void> {
     if (!this.database.hasFullTextSearch) return;
     const m = await this.db.movie.findUnique({ where: { id }, include: { genres: true } });
-    await this.db.$executeRawUnsafe('DELETE FROM search_fts WHERE kind = ? AND ref_id = ?', 'movie', id);
+    await this.db.$executeRawUnsafe(
+      'DELETE FROM search_fts WHERE kind = ? AND ref_id = ?',
+      'movie',
+      id,
+    );
     if (!m) return;
     await this.db.$executeRawUnsafe(
       'INSERT INTO search_fts (kind, ref_id, title, genres, year, people, overview) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -70,7 +79,11 @@ export class SearchService {
       where: { id },
       include: { genres: true, episodes: { select: { title: true }, take: 200 } },
     });
-    await this.db.$executeRawUnsafe('DELETE FROM search_fts WHERE kind = ? AND ref_id = ?', 'series', id);
+    await this.db.$executeRawUnsafe(
+      'DELETE FROM search_fts WHERE kind = ? AND ref_id = ?',
+      'series',
+      id,
+    );
     if (!s) return;
     await this.db.$executeRawUnsafe(
       'INSERT INTO search_fts (kind, ref_id, title, genres, year, people, overview) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -86,7 +99,11 @@ export class SearchService {
 
   async remove(kind: 'movie' | 'series', id: string): Promise<void> {
     if (!this.database.hasFullTextSearch) return;
-    await this.db.$executeRawUnsafe('DELETE FROM search_fts WHERE kind = ? AND ref_id = ?', kind, id);
+    await this.db.$executeRawUnsafe(
+      'DELETE FROM search_fts WHERE kind = ? AND ref_id = ?',
+      kind,
+      id,
+    );
   }
 
   async rebuild(): Promise<void> {
@@ -97,7 +114,10 @@ export class SearchService {
     const series = await this.db.series.findMany({ select: { id: true } });
     for (const m of movies) await this.indexMovie(m.id);
     for (const s of series) await this.indexSeries(s.id);
-    this.log.info({ ms: Date.now() - started, movies: movies.length, series: series.length }, 'search index rebuilt');
+    this.log.info(
+      { ms: Date.now() - started, movies: movies.length, series: series.length },
+      'search index rebuilt',
+    );
   }
 
   async search(query: string, limit = 40): Promise<SearchHit[]> {
@@ -108,13 +128,19 @@ export class SearchService {
       if (!fts) return [];
       try {
         // bm25 weights: kind, ref_id (unindexed), title, genres, year, people, overview.
-        const rows = await this.db.$queryRawUnsafe<{ kind: string; ref_id: string; score: number }[]>(
+        const rows = await this.db.$queryRawUnsafe<
+          { kind: string; ref_id: string; score: number }[]
+        >(
           `SELECT kind, ref_id, bm25(search_fts, 0, 0, 12.0, 4.0, 4.0, 3.0, 1.0) AS score
              FROM search_fts WHERE search_fts MATCH ? ORDER BY score LIMIT ?`,
           fts,
           limit,
         );
-        return rows.map((r) => ({ kind: r.kind as 'movie' | 'series', id: r.ref_id, score: Number(r.score) }));
+        return rows.map((r) => ({
+          kind: r.kind as 'movie' | 'series',
+          id: r.ref_id,
+          score: Number(r.score),
+        }));
       } catch (err) {
         this.log.warn({ err: (err as Error).message }, 'FTS query failed, using fallback');
       }

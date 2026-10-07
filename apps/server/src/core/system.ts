@@ -4,7 +4,8 @@ import path from 'node:path';
 import type { DiskInfo } from '@taazastream/shared';
 
 /** Interfaces that are usually virtual adapters and not reachable from phones/TVs. */
-const VIRTUAL_IFACE = /vethernet|virtualbox|vmware|vbox|hyper-v|wsl|docker|loopback|tailscale|zerotier|hamachi|npcap|bluetooth|tap|tun|utun|br-|virbr|veth/i;
+const VIRTUAL_IFACE =
+  /vethernet|virtualbox|vmware|vbox|hyper-v|wsl|docker|loopback|tailscale|zerotier|hamachi|npcap|bluetooth|tap|tun|utun|br-|virbr|veth/i;
 
 function isPrivateV4(ip: string): boolean {
   return /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip);
@@ -93,7 +94,10 @@ export async function diskUsage(paths: { path: string; label: string }[]): Promi
       const st = await statfs(p.path);
       const total = Number(st.blocks) * Number(st.bsize);
       const free = Number(st.bavail) * Number(st.bsize);
-      const volume = process.platform === 'win32' ? path.parse(path.resolve(p.path)).root.toUpperCase() : `${total}-${free}`;
+      const volume =
+        process.platform === 'win32'
+          ? path.parse(path.resolve(p.path)).root.toUpperCase()
+          : `${total}-${free}`;
       if (seen.has(volume)) continue;
       seen.set(volume, {
         path: process.platform === 'win32' ? volume : p.path,

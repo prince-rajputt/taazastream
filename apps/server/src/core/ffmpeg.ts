@@ -32,7 +32,12 @@ export class FfmpegTools {
 
   constructor(private readonly log: Logger) {}
 
-  async detect(preferred: { ffmpeg?: string; ffprobe?: string; envFfmpeg?: string; envFfprobe?: string }) {
+  async detect(preferred: {
+    ffmpeg?: string;
+    ffprobe?: string;
+    envFfmpeg?: string;
+    envFfprobe?: string;
+  }) {
     this.ffmpeg = await this.resolve('ffmpeg', [
       ['settings', preferred.ffmpeg],
       ['env', preferred.envFfmpeg],
@@ -78,7 +83,10 @@ export class FfmpegTools {
     );
   }
 
-  private async resolve(name: string, candidates: [string, string | undefined | null][]): Promise<ToolInfo> {
+  private async resolve(
+    name: string,
+    candidates: [string, string | undefined | null][],
+  ): Promise<ToolInfo> {
     for (const [source, candidate] of candidates) {
       if (!candidate) continue;
       if (source !== 'PATH' && !existsSync(candidate)) continue;
@@ -90,7 +98,8 @@ export class FfmpegTools {
         const version = /version\s+(\S+)/.exec(stdout)?.[1] ?? 'unknown';
         return { available: true, path: candidate, version, source };
       } catch {
-        if (source !== 'PATH') this.log.warn({ tool: name, source }, 'configured tool is not runnable');
+        if (source !== 'PATH')
+          this.log.warn({ tool: name, source }, 'configured tool is not runnable');
       }
     }
     return { available: false, path: null, version: null, source: 'none' };
@@ -99,11 +108,15 @@ export class FfmpegTools {
   /** Run ffmpeg to completion (short jobs: thumbnails, subtitle extraction). */
   async run(args: string[], timeoutMs = 60_000): Promise<void> {
     if (!this.ffmpeg.path) throw new Error('FFmpeg is not available');
-    await execFileAsync(this.ffmpeg.path, ['-hide_banner', '-loglevel', 'error', '-nostdin', ...args], {
-      windowsHide: true,
-      timeout: timeoutMs,
-      maxBuffer: 8 * 1024 * 1024,
-    });
+    await execFileAsync(
+      this.ffmpeg.path,
+      ['-hide_banner', '-loglevel', 'error', '-nostdin', ...args],
+      {
+        windowsHide: true,
+        timeout: timeoutMs,
+        maxBuffer: 8 * 1024 * 1024,
+      },
+    );
   }
 
   /** Spawn a long-running ffmpeg (HLS jobs) with `cwd` as its working directory. */

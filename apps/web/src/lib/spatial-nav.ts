@@ -21,7 +21,9 @@ function center(r: DOMRect) {
 
 function findNext(from: HTMLElement, dir: Dir): HTMLElement | null {
   const scope = (from.closest('[data-nav-scope]') as HTMLElement | null) ?? document.body;
-  const candidates = Array.from(scope.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el !== from && visible(el));
+  const candidates = Array.from(scope.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    (el) => el !== from && visible(el),
+  );
   const fr = from.getBoundingClientRect();
   const fc = center(fr);
   let best: HTMLElement | null = null;
@@ -80,7 +82,11 @@ export function installSpatialNavigation(): () => void {
     if (active.closest('[data-no-spatial]')) return;
     const tag = active.tagName;
     const type = (active as HTMLInputElement).type;
-    if ((tag === 'INPUT' && type !== 'checkbox' && type !== 'radio') || tag === 'TEXTAREA' || tag === 'SELECT') {
+    if (
+      (tag === 'INPUT' && type !== 'checkbox' && type !== 'radio') ||
+      tag === 'TEXTAREA' ||
+      tag === 'SELECT'
+    ) {
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || type === 'range') return;
     }
     const next = findNext(active, e.key as Dir);

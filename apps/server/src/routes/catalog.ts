@@ -66,9 +66,19 @@ export function registerCatalogRoutes(app: FastifyInstance, ctx: AppContext) {
     };
     const [total, items] = await Promise.all([
       db.movie.count({ where: { AND: [playableMovie, where] } }),
-      catalog.movies({ where, orderBy: movieOrder(q.sort), skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
+      catalog.movies({
+        where,
+        orderBy: movieOrder(q.sort),
+        skip: (q.page - 1) * q.pageSize,
+        take: q.pageSize,
+      }),
     ]);
-    const result: Paged<TitleCard> = { items: await catalog.decorate(items, request.profileId), total, page: q.page, pageSize: q.pageSize };
+    const result: Paged<TitleCard> = {
+      items: await catalog.decorate(items, request.profileId),
+      total,
+      page: q.page,
+      pageSize: q.pageSize,
+    };
     return ok(result);
   });
 
@@ -85,9 +95,19 @@ export function registerCatalogRoutes(app: FastifyInstance, ctx: AppContext) {
     };
     const [total, items] = await Promise.all([
       db.series.count({ where: { AND: [playableSeries, where] } }),
-      catalog.series({ where, orderBy: seriesOrder(q.sort), skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
+      catalog.series({
+        where,
+        orderBy: seriesOrder(q.sort),
+        skip: (q.page - 1) * q.pageSize,
+        take: q.pageSize,
+      }),
     ]);
-    const result: Paged<TitleCard> = { items: await catalog.decorate(items, request.profileId), total, page: q.page, pageSize: q.pageSize };
+    const result: Paged<TitleCard> = {
+      items: await catalog.decorate(items, request.profileId),
+      total,
+      page: q.page,
+      pageSize: q.pageSize,
+    };
     return ok(result);
   });
 
@@ -108,10 +128,21 @@ export function registerCatalogRoutes(app: FastifyInstance, ctx: AppContext) {
     const { slug } = parse(z.object({ slug: z.string().min(1).max(64) }), request.params);
     const genre = await catalog.genreBySlug(slug);
     const [movies, series] = await Promise.all([
-      catalog.movies({ where: { genres: { some: { id: genre.id } } }, orderBy: { addedAt: 'desc' }, take: 200 }),
-      catalog.series({ where: { genres: { some: { id: genre.id } } }, orderBy: { addedAt: 'desc' }, take: 100 }),
+      catalog.movies({
+        where: { genres: { some: { id: genre.id } } },
+        orderBy: { addedAt: 'desc' },
+        take: 200,
+      }),
+      catalog.series({
+        where: { genres: { some: { id: genre.id } } },
+        orderBy: { addedAt: 'desc' },
+        take: 100,
+      }),
     ]);
-    return ok({ genre: { id: genre.id, name: genre.name, slug: genre.slug }, items: await catalog.decorate([...movies, ...series], request.profileId) });
+    return ok({
+      genre: { id: genre.id, name: genre.name, slug: genre.slug },
+      items: await catalog.decorate([...movies, ...series], request.profileId),
+    });
   });
 
   /* ------------------------------ Search ------------------------------ */
@@ -130,7 +161,9 @@ export function registerCatalogRoutes(app: FastifyInstance, ctx: AppContext) {
       catalog.series({ where: { id: { in: seriesIds } } }),
     ]);
     const rank = new Map(hits.map((h, i) => [`${h.kind}:${h.id}`, i]));
-    const items = [...movies, ...series].sort((a, b) => (rank.get(`${a.kind}:${a.id}`) ?? 0) - (rank.get(`${b.kind}:${b.id}`) ?? 0));
+    const items = [...movies, ...series].sort(
+      (a, b) => (rank.get(`${a.kind}:${a.id}`) ?? 0) - (rank.get(`${b.kind}:${b.id}`) ?? 0),
+    );
     const needle = q.q.toLowerCase();
     const result: SearchResult = {
       query: q.q,
@@ -145,12 +178,56 @@ export function registerCatalogRoutes(app: FastifyInstance, ctx: AppContext) {
     const q = parse(suggestQuerySchema, request.query);
     const hits = await ctx.search.search(q.q, 8);
     const [movies, series] = await Promise.all([
-      db.movie.findMany({ where: { AND: [playableMovie, { id: { in: hits.filter((h) => h.kind === 'movie').map((h) => h.id) } }] }, select: { id: true, title: true, year: true, posterImage: true, backdropImage: true, accent: true } }),
-      db.series.findMany({ where: { AND: [playableSeries, { id: { in: hits.filter((h) => h.kind === 'series').map((h) => h.id) } }] }, select: { id: true, title: true, year: true, posterImage: true, backdropImage: true, accent: true } }),
+      db.movie.findMany({
+        where: {
+          AND: [
+            playableMovie,
+            { id: { in: hits.filter((h) => h.kind === 'movie').map((h) => h.id) } },
+          ],
+        },
+        select: {
+          id: true,
+          title: true,
+          year: true,
+          posterImage: true,
+          backdropImage: true,
+          accent: true,
+        },
+      }),
+      db.series.findMany({
+        where: {
+          AND: [
+            playableSeries,
+            { id: { in: hits.filter((h) => h.kind === 'series').map((h) => h.id) } },
+          ],
+        },
+        select: {
+          id: true,
+          title: true,
+          year: true,
+          posterImage: true,
+          backdropImage: true,
+          accent: true,
+        },
+      }),
     ]);
     const all: SearchSuggestion[] = [
-      ...movies.map((m) => ({ id: m.id, kind: 'movie' as const, title: m.title, year: m.year, posterUrl: LocalImageServer.urlFor(m.posterImage ?? m.backdropImage), accent: m.accent })),
-      ...series.map((s) => ({ id: s.id, kind: 'series' as const, title: s.title, year: s.year, posterUrl: LocalImageServer.urlFor(s.posterImage ?? s.backdropImage), accent: s.accent })),
+      ...movies.map((m) => ({
+        id: m.id,
+        kind: 'movie' as const,
+        title: m.title,
+        year: m.year,
+        posterUrl: LocalImageServer.urlFor(m.posterImage ?? m.backdropImage),
+        accent: m.accent,
+      })),
+      ...series.map((s) => ({
+        id: s.id,
+        kind: 'series' as const,
+        title: s.title,
+        year: s.year,
+        posterUrl: LocalImageServer.urlFor(s.posterImage ?? s.backdropImage),
+        accent: s.accent,
+      })),
     ];
     const order = new Map(hits.map((h, i) => [h.id, i]));
     return ok(all.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)).slice(0, 8));
@@ -163,19 +240,35 @@ export function registerCatalogRoutes(app: FastifyInstance, ctx: AppContext) {
     const body = parse(myListSchema, request.body);
     const userId = request.profileId;
     if (body.kind === 'movie') {
-      if (!(await db.movie.findUnique({ where: { id: body.id }, select: { id: true } }))) throw notFound('Movie');
-      await db.favorite.upsert({ where: { userId_movieId: { userId, movieId: body.id } }, create: { userId, movieId: body.id }, update: {} });
+      if (!(await db.movie.findUnique({ where: { id: body.id }, select: { id: true } })))
+        throw notFound('Movie');
+      await db.favorite.upsert({
+        where: { userId_movieId: { userId, movieId: body.id } },
+        create: { userId, movieId: body.id },
+        update: {},
+      });
     } else {
-      if (!(await db.series.findUnique({ where: { id: body.id }, select: { id: true } }))) throw notFound('Series');
-      await db.favorite.upsert({ where: { userId_seriesId: { userId, seriesId: body.id } }, create: { userId, seriesId: body.id }, update: {} });
+      if (!(await db.series.findUnique({ where: { id: body.id }, select: { id: true } })))
+        throw notFound('Series');
+      await db.favorite.upsert({
+        where: { userId_seriesId: { userId, seriesId: body.id } },
+        create: { userId, seriesId: body.id },
+        update: {},
+      });
     }
     return ok({ inMyList: true });
   });
 
   app.delete('/api/my-list/:kind/:id', async (request) => {
-    const params = parse(z.object({ kind: z.enum(['movie', 'series']), id: idSchema }), request.params);
+    const params = parse(
+      z.object({ kind: z.enum(['movie', 'series']), id: idSchema }),
+      request.params,
+    );
     await db.favorite.deleteMany({
-      where: { userId: request.profileId, ...(params.kind === 'movie' ? { movieId: params.id } : { seriesId: params.id }) },
+      where: {
+        userId: request.profileId,
+        ...(params.kind === 'movie' ? { movieId: params.id } : { seriesId: params.id }),
+      },
     });
     return ok({ inMyList: false });
   });
@@ -196,11 +289,19 @@ export function registerCatalogRoutes(app: FastifyInstance, ctx: AppContext) {
   app.delete('/api/continue-watching/:videoId', async (request) => {
     const { videoId } = parse(z.object({ videoId: idSchema }), request.params);
     await ctx.progress.flush();
-    const row = await db.continueWatching.findUnique({ where: { userId_videoFileId: { userId: request.profileId, videoFileId: videoId } } });
+    const row = await db.continueWatching.findUnique({
+      where: { userId_videoFileId: { userId: request.profileId, videoFileId: videoId } },
+    });
     if (row?.seriesId) {
-      await db.continueWatching.updateMany({ where: { userId: request.profileId, seriesId: row.seriesId }, data: { hidden: true } });
+      await db.continueWatching.updateMany({
+        where: { userId: request.profileId, seriesId: row.seriesId },
+        data: { hidden: true },
+      });
     } else {
-      await db.continueWatching.updateMany({ where: { userId: request.profileId, videoFileId: videoId }, data: { hidden: true } });
+      await db.continueWatching.updateMany({
+        where: { userId: request.profileId, videoFileId: videoId },
+        data: { hidden: true },
+      });
     }
     return ok({ removed: true });
   });

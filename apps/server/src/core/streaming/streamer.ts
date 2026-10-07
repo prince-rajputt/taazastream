@@ -33,7 +33,11 @@ export class LocalVideoStreamer {
     private readonly limits: () => { maxStreams: number },
   ) {}
 
-  async stream(request: FastifyRequest, reply: FastifyReply, video: StreamableVideo): Promise<FastifyReply> {
+  async stream(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    video: StreamableVideo,
+  ): Promise<FastifyReply> {
     // Defence in depth: the DB path must still be inside its registered media folder.
     if (!isInsideAny([video.folderPath], video.path)) {
       this.log.warn({ videoId: video.id }, 'refusing to stream file outside media folder');
@@ -54,8 +58,15 @@ export class LocalVideoStreamer {
     const ip = request.ip;
     const ua = request.headers['user-agent'];
     const streamKey = StreamTracker.key(ip, ua, video.id);
-    if (!this.tracker.isActive(streamKey) && this.tracker.activeCount(streamKey) >= this.limits().maxStreams) {
-      throw new AppError(503, 'STREAM_LIMIT', 'The server is busy: maximum number of simultaneous streams reached');
+    if (
+      !this.tracker.isActive(streamKey) &&
+      this.tracker.activeCount(streamKey) >= this.limits().maxStreams
+    ) {
+      throw new AppError(
+        503,
+        'STREAM_LIMIT',
+        'The server is busy: maximum number of simultaneous streams reached',
+      );
     }
 
     const etag = `"${size.toString(16)}-${Math.floor(mtime.getTime()).toString(16)}"`;
@@ -65,12 +76,18 @@ export class LocalVideoStreamer {
     reply.header('Last-Modified', mtime.toUTCString());
     // Private: the browser may cache ranges, shared proxies may not.
     reply.header('Cache-Control', 'private, max-age=3600');
-    reply.header('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(path.basename(video.fileName))}`);
+    reply.header(
+      'Content-Disposition',
+      `inline; filename*=UTF-8''${encodeURIComponent(path.basename(video.fileName))}`,
+    );
     reply.header('X-Content-Type-Options', 'nosniff');
 
     // If-Range: only honour the Range when the validator still matches.
     const ifRange = request.headers['if-range'];
-    const rangeHeader = ifRange && ifRange !== etag && ifRange !== mtime.toUTCString() ? undefined : request.headers.range;
+    const rangeHeader =
+      ifRange && ifRange !== etag && ifRange !== mtime.toUTCString()
+        ? undefined
+        : request.headers.range;
     const parsed = parseRange(rangeHeader, size);
 
     if (parsed.type === 'unsatisfiable') {

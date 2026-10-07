@@ -45,7 +45,10 @@ export default function BrowsePage({ kind }: { kind: 'movies' | 'series' }) {
 
   const set = (patch: Record<string, string | undefined>) => {
     const next = new URLSearchParams(params);
-    for (const [k, v] of Object.entries(patch)) (v ? next.set(k, v) : next.delete(k));
+    for (const [k, v] of Object.entries(patch)) {
+      if (v) next.set(k, v);
+      else next.delete(k);
+    }
     if (!('page' in patch)) next.delete('page');
     setParams(next, { replace: true });
   };
@@ -55,8 +58,15 @@ export default function BrowsePage({ kind }: { kind: 'movies' | 'series' }) {
     <div className="page-x pt-24 md:pt-28">
       <PageHeader title={title}>
         <div className="flex flex-wrap gap-2">
-          <label className="sr-only" htmlFor="genre">Genre</label>
-          <select id="genre" value={genre ?? ''} onChange={(e) => set({ genre: e.target.value || undefined })} className="h-10 rounded-full border border-line bg-surface px-4 text-sm">
+          <label className="sr-only" htmlFor="genre">
+            Genre
+          </label>
+          <select
+            id="genre"
+            value={genre ?? ''}
+            onChange={(e) => set({ genre: e.target.value || undefined })}
+            className="h-10 rounded-full border border-line bg-surface px-4 text-sm"
+          >
             <option value="">All genres</option>
             {genres?.map((g) => (
               <option key={g.id} value={g.slug}>
@@ -64,8 +74,15 @@ export default function BrowsePage({ kind }: { kind: 'movies' | 'series' }) {
               </option>
             ))}
           </select>
-          <label className="sr-only" htmlFor="sort">Sort by</label>
-          <select id="sort" value={sort} onChange={(e) => set({ sort: e.target.value })} className="h-10 rounded-full border border-line bg-surface px-4 text-sm">
+          <label className="sr-only" htmlFor="sort">
+            Sort by
+          </label>
+          <select
+            id="sort"
+            value={sort}
+            onChange={(e) => set({ sort: e.target.value })}
+            className="h-10 rounded-full border border-line bg-surface px-4 text-sm"
+          >
             {SORTS.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.label}
@@ -79,20 +96,36 @@ export default function BrowsePage({ kind }: { kind: 'movies' | 'series' }) {
       ) : error ? (
         <ErrorState error={error} onRetry={() => void refetch()} />
       ) : !data?.items.length ? (
-        <EmptyState title={`No ${kind} found`}>{genre ? 'Try another genre.' : 'Add a media folder and scan your library from the admin dashboard.'}</EmptyState>
+        <EmptyState title={`No ${kind} found`}>
+          {genre
+            ? 'Try another genre.'
+            : 'Add a media folder and scan your library from the admin dashboard.'}
+        </EmptyState>
       ) : (
         <div className={isFetching ? 'opacity-70 transition-opacity' : ''}>
           <p className="mb-4 text-sm text-muted">{data.total} titles</p>
           <TitleGrid items={data.items} />
           {pages > 1 && (
             <div className="mt-10 flex items-center justify-center gap-3">
-              <button type="button" disabled={page <= 1} onClick={() => set({ page: String(page - 1) })} className="flex h-10 w-10 items-center justify-center rounded-full border border-line disabled:opacity-30" aria-label="Previous page">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => set({ page: String(page - 1) })}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-line disabled:opacity-30"
+                aria-label="Previous page"
+              >
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <span className="text-sm text-muted">
                 Page {page} of {pages}
               </span>
-              <button type="button" disabled={page >= pages} onClick={() => set({ page: String(page + 1) })} className="flex h-10 w-10 items-center justify-center rounded-full border border-line disabled:opacity-30" aria-label="Next page">
+              <button
+                type="button"
+                disabled={page >= pages}
+                onClick={() => set({ page: String(page + 1) })}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-line disabled:opacity-30"
+                aria-label="Next page"
+              >
                 <ChevronRight className="h-5 w-5" />
               </button>
             </div>
@@ -110,7 +143,13 @@ export function GenrePage() {
   return (
     <div className="page-x pt-24 md:pt-28">
       <PageHeader title={data?.genre.name ?? 'Genre'} />
-      {isLoading ? <GridSkeleton /> : error ? <ErrorState error={error} onRetry={() => void refetch()} /> : <TitleGrid items={data?.items ?? []} />}
+      {isLoading ? (
+        <GridSkeleton />
+      ) : error ? (
+        <ErrorState error={error} onRetry={() => void refetch()} />
+      ) : (
+        <TitleGrid items={data?.items ?? []} />
+      )}
     </div>
   );
 }
@@ -122,9 +161,16 @@ export function GenresIndexPage() {
     <div className="page-x pt-24 md:pt-28">
       <PageHeader title="Genres" />
       {isLoading ? (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">{Array.from({ length: 8 }, (_, i) => <div key={i} className="skeleton h-24 rounded-xl" />)}</div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {Array.from({ length: 8 }, (_, i) => (
+            <div key={i} className="skeleton h-24 rounded-xl" />
+          ))}
+        </div>
       ) : !data?.length ? (
-        <EmptyState title="No genres yet">Genres come from .nfo/.json metadata next to your videos, or can be set in the admin library editor.</EmptyState>
+        <EmptyState title="No genres yet">
+          Genres come from .nfo/.json metadata next to your videos, or can be set in the admin
+          library editor.
+        </EmptyState>
       ) : (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
           {data.map((g, i) => (
@@ -132,7 +178,9 @@ export function GenresIndexPage() {
               key={g.id}
               to={`/genre/${g.slug}`}
               className="group relative flex h-24 items-end overflow-hidden rounded-xl border border-line p-4 transition hover:border-white/25 md:h-32"
-              style={{ background: `linear-gradient(135deg, hsl(${(i * 47) % 360} 70% 32%), #13131c 75%)` }}
+              style={{
+                background: `linear-gradient(135deg, hsl(${(i * 47) % 360} 70% 32%), #13131c 75%)`,
+              }}
             >
               <span className="font-display text-lg font-semibold md:text-2xl">{g.name}</span>
               <span className="absolute top-3 right-4 text-xs text-white/60">{g.count}</span>

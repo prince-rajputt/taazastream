@@ -4,9 +4,7 @@ export interface ByteRange {
 }
 
 export type RangeResult =
-  | { type: 'full' }
-  | { type: 'partial'; range: ByteRange }
-  | { type: 'unsatisfiable' };
+  { type: 'full' } | { type: 'partial'; range: ByteRange } | { type: 'unsatisfiable' };
 
 /**
  * Parse an HTTP `Range` header for a resource of `size` bytes (RFC 9110 §14).
@@ -35,7 +33,8 @@ export function parseRange(header: string | undefined, size: number): RangeResul
   } else {
     start = Number(a);
     end = b === '' ? size - 1 : Math.min(Number(b), size - 1);
-    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end)) return { type: 'unsatisfiable' };
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end))
+      return { type: 'unsatisfiable' };
     if (start >= size || end < start) return { type: 'unsatisfiable' };
   }
   return { type: 'partial', range: { start, end } };

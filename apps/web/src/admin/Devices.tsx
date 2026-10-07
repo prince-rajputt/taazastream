@@ -7,19 +7,35 @@ import { timeAgo } from '../lib/format';
 import { AdminHeader } from './AdminApp';
 import { Badge, Card, ErrorText } from './ui';
 
-const ICONS = { Phone: Smartphone, Tablet: Tablet, Desktop: Laptop, TV: Tv, Unknown: Monitor } as const;
+const ICONS = {
+  Phone: Smartphone,
+  Tablet: Tablet,
+  Desktop: Laptop,
+  TV: Tv,
+  Unknown: Monitor,
+} as const;
 
 export default function DevicesPage() {
-  const { data, isLoading, error } = useQuery({ queryKey: ['admin-devices'], queryFn: () => api.get<DeviceInfo[]>('/api/admin/devices'), refetchInterval: 3000 });
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['admin-devices'],
+    queryFn: () => api.get<DeviceInfo[]>('/api/admin/devices'),
+    refetchInterval: 3000,
+  });
   return (
     <div className="space-y-6">
-      <AdminHeader title="Devices" description="Devices that used TaazaStream in the last few minutes. Only the IP address and device type are kept, in memory." />
+      <AdminHeader
+        title="Devices"
+        description="Devices that used TaazaStream in the last few minutes. Only the IP address and device type are kept, in memory."
+      />
       <ErrorText error={error} />
       {isLoading ? (
         <Spinner className="mx-auto h-8 w-8" />
       ) : !data?.length ? (
         <Card>
-          <p className="text-sm text-muted">No devices connected. Open the server address on a phone, laptop or TV on the same Wi-Fi.</p>
+          <p className="text-sm text-muted">
+            No devices connected. Open the server address on a phone, laptop or TV on the same
+            Wi-Fi.
+          </p>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
@@ -28,7 +44,9 @@ export default function DevicesPage() {
             return (
               <Card key={d.id}>
                 <div className="flex items-start gap-4">
-                  <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${d.status === 'Streaming' ? 'bg-gradient-brand text-white' : 'bg-white/8 text-white/70'}`}>
+                  <span
+                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${d.status === 'Streaming' ? 'bg-gradient-brand text-white' : 'bg-white/8 text-white/70'}`}
+                  >
                     <Icon className="h-6 w-6" />
                   </span>
                   <div className="min-w-0 flex-1">

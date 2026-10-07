@@ -30,7 +30,12 @@ const jsonSchema = z
     tagline: z.string().max(300).optional(),
     genres: z.array(z.string().max(40)).max(20).optional(),
     cast: z
-      .array(z.union([z.string().max(120), z.object({ name: z.string().max(120), role: z.string().max(120).nullish() })]))
+      .array(
+        z.union([
+          z.string().max(120),
+          z.object({ name: z.string().max(120), role: z.string().max(120).nullish() }),
+        ]),
+      )
       .max(100)
       .optional(),
     director: z.string().max(120).optional(),
@@ -94,7 +99,8 @@ export function parseNfo(xml: string): SidecarMetadata {
   const director = xmlTag(xml, 'director');
   if (director) meta.director = director;
   const rating = Number(xmlTag(xml, 'rating') ?? xmlTag(xml, 'value'));
-  if (Number.isFinite(rating) && rating > 0 && rating <= 10) meta.rating = Math.round(rating * 10) / 10;
+  if (Number.isFinite(rating) && rating > 0 && rating <= 10)
+    meta.rating = Math.round(rating * 10) / 10;
   const mpaa = xmlTag(xml, 'mpaa') ?? xmlTag(xml, 'certification');
   if (mpaa) meta.contentRating = mpaa.replace(/^Rated\s+/i, '').slice(0, 16);
   const actors = xmlTags(xml, 'actor')
@@ -136,7 +142,8 @@ export async function readSidecarMetadata(candidates: string[]): Promise<Sidecar
   for (const file of candidates) {
     const text = await readSmall(file);
     if (text == null) continue;
-    const meta = path.extname(file).toLowerCase() === '.nfo' ? parseNfo(text) : parseJsonSidecar(text);
+    const meta =
+      path.extname(file).toLowerCase() === '.nfo' ? parseNfo(text) : parseJsonSidecar(text);
     if (Object.keys(meta).length) return meta;
   }
   return {};

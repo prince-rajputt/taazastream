@@ -7,7 +7,8 @@
  * "Taaza" means fresh: a saffron → coral → rose gradient on a deep ink background.
  */
 @theme {
-  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-sans:
+    'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Outfit Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
 
   --color-ink: #08080d;
@@ -86,7 +87,12 @@
 }
 
 @utility text-gradient-brand {
-  background-image: linear-gradient(100deg, var(--color-brand-400), var(--color-brand-500) 45%, var(--color-rose-500));
+  background-image: linear-gradient(
+    100deg,
+    var(--color-brand-400),
+    var(--color-brand-500) 45%,
+    var(--color-rose-500)
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -111,7 +117,12 @@
 }
 
 @utility skeleton {
-  background: linear-gradient(90deg, var(--color-surface) 0%, var(--color-surface-2) 40%, var(--color-surface) 80%);
+  background: linear-gradient(
+    90deg,
+    var(--color-surface) 0%,
+    var(--color-surface-2) 40%,
+    var(--color-surface) 80%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }
@@ -250,7 +261,11 @@ input[type='range'].ts-range {
 input[type='range'].ts-range::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 9999px;
-  background: linear-gradient(to right, #fff var(--fill, 50%), rgb(255 255 255 / 0.25) var(--fill, 50%));
+  background: linear-gradient(
+    to right,
+    #fff var(--fill, 50%),
+    rgb(255 255 255 / 0.25) var(--fill, 50%)
+  );
 }
 input[type='range'].ts-range::-moz-range-track {
   height: 4px;

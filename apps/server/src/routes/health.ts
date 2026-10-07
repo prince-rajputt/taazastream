@@ -34,6 +34,12 @@ export function registerHealthRoutes(app: FastifyInstance, ctx: AppContext) {
       errorCorrectionLevel: 'M',
       color: { dark: '#0b0b10', light: '#ffffff' },
     });
-    return ok({ name: info.name, primaryUrl: info.primaryUrl, urls: info.urls, mdnsHost: info.mdnsHost, qrSvg });
+    return ok({
+      name: info.name,
+      primaryUrl: info.primaryUrl,
+      urls: info.urls,
+      mdnsHost: info.mdnsHost,
+      qrSvg,
+    });
   });
 }

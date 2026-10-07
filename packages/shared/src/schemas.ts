@@ -34,8 +34,16 @@ export const suggestQuerySchema = z.object({
 
 export const watchProgressSchema = z.object({
   videoId: idSchema,
-  positionSec: z.number().finite().min(0).max(60 * 60 * 24),
-  durationSec: z.number().finite().min(0).max(60 * 60 * 24),
+  positionSec: z
+    .number()
+    .finite()
+    .min(0)
+    .max(60 * 60 * 24),
+  durationSec: z
+    .number()
+    .finite()
+    .min(0)
+    .max(60 * 60 * 24),
   completed: z.boolean().optional(),
   /** Client generated id grouping the progress events of one playback session. */
   sessionId: z.string().max(64).optional(),

@@ -29,7 +29,9 @@ const bool = (fallback: boolean) =>
   z
     .string()
     .optional()
-    .transform((v) => (v == null || v === '' ? fallback : ['1', 'true', 'yes', 'on'].includes(v.toLowerCase())));
+    .transform((v) =>
+      v == null || v === '' ? fallback : ['1', 'true', 'yes', 'on'].includes(v.toLowerCase()),
+    );
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
@@ -53,7 +55,11 @@ const envSchema = z.object({
   ALLOW_PUBLIC_ADMIN: bool(false),
   ADMIN_USERNAME: z.string().optional(),
   ADMIN_PASSWORD: z.string().optional(),
-  SESSION_TTL_HOURS: z.coerce.number().min(1).max(24 * 90).default(24 * 7),
+  SESSION_TTL_HOURS: z.coerce
+    .number()
+    .min(1)
+    .max(24 * 90)
+    .default(24 * 7),
   AUTO_MIGRATE: bool(true),
   MDNS_ENABLED: bool(true),
   SUPABASE_URL: z.string().default(''),
@@ -157,7 +163,9 @@ export function loadConfig(overrides: Partial<Record<keyof Env, string>> = {}): 
     hlsDir,
     subtitlesDir,
     backupDir,
-    webDist: env.WEB_DIST ? resolveFrom(root, env.WEB_DIST) : path.join(root, 'apps', 'web', 'dist'),
+    webDist: env.WEB_DIST
+      ? resolveFrom(root, env.WEB_DIST)
+      : path.join(root, 'apps', 'web', 'dist'),
     databaseUrl: db.url,
     databasePath: db.filePath,
     mediaRoots,

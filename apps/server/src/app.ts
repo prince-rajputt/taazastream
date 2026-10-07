@@ -8,7 +8,12 @@ import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import { Prisma, type User } from '@prisma/client';
 import { idSchema } from '@taazastream/shared';
-import Fastify, { LogController, type FastifyBaseLogger, type FastifyInstance, type FastifyRequest } from 'fastify';
+import Fastify, {
+  LogController,
+  type FastifyBaseLogger,
+  type FastifyInstance,
+  type FastifyRequest,
+} from 'fastify';
 import type { AppContext } from './context';
 import { isPrivateAddress } from './core/system';
 import { AppError, failure } from './http/errors';
@@ -90,7 +95,10 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
     allowList: (req) => MEDIA_PATH.test(req.url) || !req.url.startsWith('/api/'),
     errorResponseBuilder: (_req, context) => ({
       statusCode: 429,
-      ...failure('RATE_LIMITED', `Too many requests. Try again in ${Math.ceil(context.ttl / 1000)}s.`),
+      ...failure(
+        'RATE_LIMITED',
+        `Too many requests. Try again in ${Math.ceil(context.ttl / 1000)}s.`,
+      ),
     }),
   });
 
@@ -102,7 +110,8 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
     if (!request.url.startsWith('/api/')) return;
 
     // Device registry for the admin dashboard (IP + coarse device class only).
-    if (!MEDIA_PATH.test(request.url)) ctx.tracker.touchDevice(request.ip, request.headers['user-agent']);
+    if (!MEDIA_PATH.test(request.url))
+      ctx.tracker.touchDevice(request.ip, request.headers['user-agent']);
 
     // CSRF: state-changing API calls must carry a custom header. Browsers cannot add it
     // cross-site without a CORS preflight, which we do not grant.
@@ -134,24 +143,40 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
 
   // Make sure profile ids point at real viewer profiles.
   app.addHook('preHandler', async (request: FastifyRequest) => {
-    if (!request.url.startsWith('/api/') || request.profileId === ctx.defaultProfileId || MEDIA_PATH.test(request.url)) return;
-    const exists = await ctx.db.user.findUnique({ where: { id: request.profileId }, select: { role: true } });
+    if (
+      !request.url.startsWith('/api/') ||
+      request.profileId === ctx.defaultProfileId ||
+      MEDIA_PATH.test(request.url)
+    )
+      return;
+    const exists = await ctx.db.user.findUnique({
+      where: { id: request.profileId },
+      select: { role: true },
+    });
     if (!exists || exists.role !== 'VIEWER') request.profileId = ctx.defaultProfileId;
   });
 
   /* ------------------------------ Errors ------------------------------ */
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof AppError) {
-      if (error.statusCode >= 500) request.log.error({ err: error.message, code: error.code, url: request.url.split('?')[0] }, 'request failed');
+      if (error.statusCode >= 500)
+        request.log.error(
+          { err: error.message, code: error.code, url: request.url.split('?')[0] },
+          'request failed',
+        );
       return reply.code(error.statusCode).send(failure(error.code, error.message, error.details));
     }
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2025') return reply.code(404).send(failure('NOT_FOUND', 'Not found'));
-      if (error.code === 'P2002') return reply.code(409).send(failure('CONFLICT', 'Already exists'));
+      if (error.code === 'P2002')
+        return reply.code(409).send(failure('CONFLICT', 'Already exists'));
       request.log.error({ err: error.message, code: error.code }, 'database error');
       return reply.code(500).send(failure('DATABASE_ERROR', 'Database error'));
     }
-    if (error instanceof Prisma.PrismaClientInitializationError || error instanceof Prisma.PrismaClientRustPanicError) {
+    if (
+      error instanceof Prisma.PrismaClientInitializationError ||
+      error instanceof Prisma.PrismaClientRustPanicError
+    ) {
       request.log.error({ err: error.message }, 'database unavailable');
       return reply.code(503).send(failure('DATABASE_ERROR', 'Database unavailable'));
     }
@@ -161,11 +186,17 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
       return reply.code(413).send(failure('BAD_REQUEST', 'Upload too large'));
     }
     if (status >= 400 && status < 500) {
-      return reply.code(status).send(failure('BAD_REQUEST', (error as Error).message || 'Bad request'));
+      return reply
+        .code(status)
+        .send(failure('BAD_REQUEST', (error as Error).message || 'Bad request'));
     }
     const code = (error as NodeJS.ErrnoException).code;
-    if (code === 'ENOSPC') return reply.code(507).send(failure('DISK_FULL', 'The server disk is full'));
-    request.log.error({ err: (error as Error).message, stack: (error as Error).stack }, 'unhandled error');
+    if (code === 'ENOSPC')
+      return reply.code(507).send(failure('DISK_FULL', 'The server disk is full'));
+    request.log.error(
+      { err: (error as Error).message, stack: (error as Error).stack },
+      'unhandled error',
+    );
     return reply.code(500).send(failure('INTERNAL_ERROR', 'Something went wrong on the server'));
   });
 
@@ -193,7 +224,13 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
       lastModified: true,
       setHeaders(res, filePath) {
         const name = path.basename(filePath);
-        if (name === 'index.html' || name === 'sw.js' || name.startsWith('workbox-') || name === 'manifest.webmanifest' || name === 'registerSW.js') {
+        if (
+          name === 'index.html' ||
+          name === 'sw.js' ||
+          name.startsWith('workbox-') ||
+          name === 'manifest.webmanifest' ||
+          name === 'registerSW.js'
+        ) {
           res.header('Cache-Control', 'no-cache');
         } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
           res.header('Cache-Control', 'public, max-age=31536000, immutable');
@@ -205,15 +242,20 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   }
 
   app.setNotFoundHandler(async (request, reply) => {
-    if (request.url.startsWith('/api/')) return reply.code(404).send(failure('NOT_FOUND', 'Endpoint not found'));
-    if (request.method !== 'GET' && request.method !== 'HEAD') return reply.code(404).send(failure('NOT_FOUND', 'Not found'));
+    if (request.url.startsWith('/api/'))
+      return reply.code(404).send(failure('NOT_FOUND', 'Endpoint not found'));
+    if (request.method !== 'GET' && request.method !== 'HEAD')
+      return reply.code(404).send(failure('NOT_FOUND', 'Not found'));
     // Missing static files (e.g. an old hashed bundle) must 404, never fall back to HTML.
-    if (/\.[a-z0-9]{1,8}$/i.test(request.url.split('?')[0]!)) return reply.code(404).type('text/plain').send('Not found');
+    if (/\.[a-z0-9]{1,8}$/i.test(request.url.split('?')[0]!))
+      return reply.code(404).type('text/plain').send('Not found');
     if (!hasWeb) {
       return reply
         .code(503)
         .type('text/html')
-        .send('<h1>TaazaStream</h1><p>The web app has not been built yet. Run <code>pnpm build</code>.</p>');
+        .send(
+          '<h1>TaazaStream</h1><p>The web app has not been built yet. Run <code>pnpm build</code>.</p>',
+        );
     }
     // SPA fallback: client-side routes (/movie/123, /admin, ...) get index.html.
     reply.header('Cache-Control', 'no-cache');

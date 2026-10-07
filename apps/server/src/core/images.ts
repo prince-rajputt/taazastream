@@ -57,14 +57,29 @@ export class LocalImageServer {
   }
 
   /** Grab a representative frame from a video. */
-  async fromVideo(videoPath: string, atSec: number, role: ImageRole, key: string): Promise<string | null> {
+  async fromVideo(
+    videoPath: string,
+    atSec: number,
+    role: ImageRole,
+    key: string,
+  ): Promise<string | null> {
     if (!this.ffmpeg.ffmpeg.available) return null;
     const name = this.newName(role, key);
     const out = path.join(this.dir, name);
     const tmp = `${out}.tmp.${this.extension}`;
     try {
       await this.ffmpeg.run(
-        ['-ss', Math.max(0, atSec).toFixed(2), '-i', videoPath, ...this.encodeArgs(role), '-an', '-sn', '-y', tmp],
+        [
+          '-ss',
+          Math.max(0, atSec).toFixed(2),
+          '-i',
+          videoPath,
+          ...this.encodeArgs(role),
+          '-an',
+          '-sn',
+          '-y',
+          tmp,
+        ],
         45_000,
       );
       if (!existsSync(tmp) || (await stat(tmp)).size === 0) throw new Error('empty frame');
@@ -131,7 +146,9 @@ export class LocalImageServer {
 export function sniffImage(buf: Buffer): 'jpg' | 'png' | 'webp' | null {
   if (buf.length < 12) return null;
   if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'jpg';
-  if (buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'png';
-  if (buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') return 'webp';
+  if (buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])))
+    return 'png';
+  if (buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP')
+    return 'webp';
   return null;
 }

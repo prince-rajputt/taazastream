@@ -25,20 +25,30 @@ export class Discovery {
     try {
       this.mdns = makeMdns({ reuseAddr: true });
       this.mdns.on('query', (query) => {
-        const wants = query.questions.some((q) => q.name.toLowerCase() === fqdn && (q.type === 'A' || (q.type as string) === 'ANY'));
+        const wants = query.questions.some(
+          (q) => q.name.toLowerCase() === fqdn && (q.type === 'A' || (q.type as string) === 'ANY'),
+        );
         if (!wants) return;
         const ips = lanAddresses();
         if (!ips.length) return;
-        this.mdns?.respond({ answers: ips.slice(0, 2).map((ip) => ({ name: fqdn, type: 'A' as const, ttl: 120, data: ip })) });
+        this.mdns?.respond({
+          answers: ips
+            .slice(0, 2)
+            .map((ip) => ({ name: fqdn, type: 'A' as const, ttl: 120, data: ip })),
+        });
       });
-      this.mdns.on('error', (err: Error) => this.log.warn({ err: err.message }, 'mDNS responder error'));
+      this.mdns.on('error', (err: Error) =>
+        this.log.warn({ err: err.message }, 'mDNS responder error'),
+      );
       this.hostname = fqdn;
     } catch (err) {
       this.log.warn({ err: (err as Error).message }, 'mDNS responder unavailable');
       this.mdns = null;
     }
     try {
-      this.bonjour = new Bonjour({}, (err: Error) => this.log.warn({ err: err.message }, 'Bonjour error'));
+      this.bonjour = new Bonjour({}, (err: Error) =>
+        this.log.warn({ err: err.message }, 'Bonjour error'),
+      );
       this.service = this.bonjour.publish({
         name: opts.name.slice(0, 60),
         type: 'http',

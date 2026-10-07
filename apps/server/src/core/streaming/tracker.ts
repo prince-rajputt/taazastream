@@ -1,5 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto';
-import type { ActiveStream, DeviceInfo, DeviceType, PlaybackMode, QualityId } from '@taazastream/shared';
+import type {
+  ActiveStream,
+  DeviceInfo,
+  DeviceType,
+  PlaybackMode,
+  QualityId,
+} from '@taazastream/shared';
 
 /** A stream counts as active while it saw traffic within this window. */
 const ACTIVE_WINDOW_MS = 20_000;
@@ -63,11 +69,24 @@ interface DeviceState {
   meter: RateMeter;
 }
 
-export function classifyUserAgent(ua: string | undefined): { type: DeviceType; browser: string; os: string } {
+export function classifyUserAgent(ua: string | undefined): {
+  type: DeviceType;
+  browser: string;
+  os: string;
+} {
   const s = ua ?? '';
   let type: DeviceType = 'Unknown';
-  if (/smart-?tv|smarttv|tizen|web0s|webos|netcast|bravia|hbbtv|aft[a-z]|crkey|android tv|googletv|roku|appletv|philipstv|viera|vidaa/i.test(s)) type = 'TV';
-  else if (/ipad|tablet|kindle|silk|playbook/i.test(s) || (/android/i.test(s) && !/mobile/i.test(s))) type = 'Tablet';
+  if (
+    /smart-?tv|smarttv|tizen|web0s|webos|netcast|bravia|hbbtv|aft[a-z]|crkey|android tv|googletv|roku|appletv|philipstv|viera|vidaa/i.test(
+      s,
+    )
+  )
+    type = 'TV';
+  else if (
+    /ipad|tablet|kindle|silk|playbook/i.test(s) ||
+    (/android/i.test(s) && !/mobile/i.test(s))
+  )
+    type = 'Tablet';
   else if (/iphone|ipod|android.*mobile|windows phone|mobile/i.test(s)) type = 'Phone';
   else if (/windows|macintosh|linux|cros/i.test(s)) type = 'Desktop';
 
@@ -114,7 +133,12 @@ export class StreamTracker {
   private global = new RateMeter();
   private history: { t: number; bps: number }[] = [];
   private timer: NodeJS.Timeout | null = null;
-  private listeners = new Set<(event: 'start' | 'stop', s: { ip: string; videoId: string; title: string; mode: PlaybackMode }) => void>();
+  private listeners = new Set<
+    (
+      event: 'start' | 'stop',
+      s: { ip: string; videoId: string; title: string; mode: PlaybackMode },
+    ) => void
+  >();
 
   start() {
     if (this.timer) return;
@@ -127,7 +151,12 @@ export class StreamTracker {
     this.timer = null;
   }
 
-  onStreamEvent(fn: (event: 'start' | 'stop', s: { ip: string; videoId: string; title: string; mode: PlaybackMode }) => void) {
+  onStreamEvent(
+    fn: (
+      event: 'start' | 'stop',
+      s: { ip: string; videoId: string; title: string; mode: PlaybackMode },
+    ) => void,
+  ) {
     this.listeners.add(fn);
   }
 
@@ -147,7 +176,10 @@ export class StreamTracker {
   }
 
   deviceIdFor(ip: string, ua: string | undefined): string {
-    return createHash('sha1').update(`${ip}|${ua ?? ''}`).digest('hex').slice(0, 16);
+    return createHash('sha1')
+      .update(`${ip}|${ua ?? ''}`)
+      .digest('hex')
+      .slice(0, 16);
   }
 
   touchDevice(ip: string, ua: string | undefined): string {
@@ -166,7 +198,8 @@ export class StreamTracker {
   activeCount(excludeKey?: string): number {
     const now = Date.now();
     let n = 0;
-    for (const [key, s] of this.streams) if (key !== excludeKey && now - s.lastActivity <= ACTIVE_WINDOW_MS) n++;
+    for (const [key, s] of this.streams)
+      if (key !== excludeKey && now - s.lastActivity <= ACTIVE_WINDOW_MS) n++;
     return n;
   }
 
@@ -176,7 +209,10 @@ export class StreamTracker {
   }
 
   static key(ip: string, ua: string | undefined, videoId: string): string {
-    return `${ip}|${createHash('sha1').update(ua ?? '').digest('hex').slice(0, 8)}|${videoId}`;
+    return `${ip}|${createHash('sha1')
+      .update(ua ?? '')
+      .digest('hex')
+      .slice(0, 8)}|${videoId}`;
   }
 
   /** Register traffic for a stream (creates it on first use). */
@@ -254,7 +290,9 @@ export class StreamTracker {
 
   listDevices(): DeviceInfo[] {
     const now = Date.now();
-    const streams = [...this.streams.values()].filter((s) => now - s.lastActivity <= ACTIVE_WINDOW_MS);
+    const streams = [...this.streams.values()].filter(
+      (s) => now - s.lastActivity <= ACTIVE_WINDOW_MS,
+    );
     return [...this.devices.values()]
       .filter((d) => now - d.lastSeen <= DEVICE_WINDOW_MS)
       .sort((a, b) => b.lastSeen - a.lastSeen)
@@ -285,6 +323,10 @@ export class StreamTracker {
   }
 
   network() {
-    return { currentBps: this.global.rate(), totalBytesSent: this.global.total, history: [...this.history] };
+    return {
+      currentBps: this.global.rate(),
+      totalBytesSent: this.global.total,
+      history: [...this.history],
+    };
   }
 }

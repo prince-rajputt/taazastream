@@ -35,7 +35,10 @@ function ProfileGate({ children }: { children: React.ReactNode }) {
     if (!exists && profiles.length === 1) setProfile(profiles[0]!.id);
   }, [profiles, profileId, setProfile]);
 
-  const needsChoice = !!profiles && profiles.length > 1 && (!profileChosen || !profiles.some((p) => p.id === profileId));
+  const needsChoice =
+    !!profiles &&
+    profiles.length > 1 &&
+    (!profileChosen || !profiles.some((p) => p.id === profileId));
   if (needsChoice && location.pathname !== '/profiles') return <Navigate to="/profiles" replace />;
   return <>{children}</>;
 }

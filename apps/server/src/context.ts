@@ -77,28 +77,59 @@ export async function createContext(config: AppConfig, log: Logger): Promise<App
 
   const images = new LocalImageServer(config.imagesDir, ffmpeg, log.child({ svc: 'images' }));
   const search = new SearchService(database, log.child({ svc: 'search' }));
-  const scanner = new LocalMediaScanner(db, ffmpeg, images, search, settings, log.child({ svc: 'scanner' }));
+  const scanner = new LocalMediaScanner(
+    db,
+    ffmpeg,
+    images,
+    search,
+    settings,
+    log.child({ svc: 'scanner' }),
+  );
   const tracker = new StreamTracker();
-  const streamer = new LocalVideoStreamer(tracker, log.child({ svc: 'stream' }), () => ({ maxStreams: settings.get().maxStreams }));
-  const hls = new HlsManager(config.hlsDir, ffmpeg, () => settings.get(), log.child({ svc: 'hls' }));
-  const subtitles = new SubtitleService(config.subtitlesDir, ffmpeg, log.child({ svc: 'subtitles' }));
+  const streamer = new LocalVideoStreamer(tracker, log.child({ svc: 'stream' }), () => ({
+    maxStreams: settings.get().maxStreams,
+  }));
+  const hls = new HlsManager(
+    config.hlsDir,
+    ffmpeg,
+    () => settings.get(),
+    log.child({ svc: 'hls' }),
+  );
+  const subtitles = new SubtitleService(
+    config.subtitlesDir,
+    ffmpeg,
+    log.child({ svc: 'subtitles' }),
+  );
   const progress = new ProgressService(db, log.child({ svc: 'progress' }));
   const catalog = new CatalogService(db);
   const backup = new BackupService(db, config.backupDir, log.child({ svc: 'backup' }));
   const storage = new LocalStorageProvider(path.join(config.dataDir, 'storage'));
   const auth = new LocalAuth(db, log.child({ svc: 'auth' }), config.sessionTtlMs);
-  const cloud = new SupabaseSync(config, db, settings, config.imagesDir, log.child({ svc: 'cloud' }));
+  const cloud = new SupabaseSync(
+    config,
+    db,
+    settings,
+    config.imagesDir,
+    log.child({ svc: 'cloud' }),
+  );
   const discovery = new Discovery(log.child({ svc: 'mdns' }));
   const cpu = new CpuMeter();
 
   // Default viewer profile so the app works without any sign-up.
-  let profile = await db.user.findFirst({ where: { role: 'VIEWER' }, orderBy: { createdAt: 'asc' } });
-  profile ??= await db.user.create({ data: { role: 'VIEWER', displayName: 'Home', color: '#f97316' } });
+  let profile = await db.user.findFirst({
+    where: { role: 'VIEWER' },
+    orderBy: { createdAt: 'asc' },
+  });
+  profile ??= await db.user.create({
+    data: { role: 'VIEWER', displayName: 'Home', color: '#f97316' },
+  });
 
   // Optional bootstrap admin from the environment (first run only).
   if (config.adminBootstrap && !(await auth.adminExists())) {
     await auth.createAdmin(config.adminBootstrap.username, config.adminBootstrap.password);
-    log.warn('Admin created from ADMIN_USERNAME/ADMIN_PASSWORD. Remove ADMIN_PASSWORD from .env now.');
+    log.warn(
+      'Admin created from ADMIN_USERNAME/ADMIN_PASSWORD. Remove ADMIN_PASSWORD from .env now.',
+    );
   }
 
   // Seed media folders from MEDIA_ROOT on first run.
@@ -107,7 +138,9 @@ export async function createContext(config: AppConfig, log: Logger): Promise<App
     if (isForbiddenMediaRoot(resolved)) continue;
     const exists = await db.mediaFolder.findUnique({ where: { path: resolved } });
     if (!exists) {
-      await db.mediaFolder.create({ data: { path: resolved, label: path.basename(resolved) || resolved, kind: 'mixed' } });
+      await db.mediaFolder.create({
+        data: { path: resolved, label: path.basename(resolved) || resolved, kind: 'mixed' },
+      });
       log.info({ path: resolved }, 'media folder added from MEDIA_ROOT');
     }
   }
@@ -149,15 +182,27 @@ export async function createContext(config: AppConfig, log: Logger): Promise<App
 
   settings.onChange(async (next, prev) => {
     if (next.ffmpegPath !== prev.ffmpegPath || next.ffprobePath !== prev.ffprobePath) {
-      await ffmpeg.detect({ ffmpeg: next.ffmpegPath, ffprobe: next.ffprobePath, envFfmpeg: config.ffmpegPath, envFfprobe: config.ffprobePath });
+      await ffmpeg.detect({
+        ffmpeg: next.ffmpegPath,
+        ffprobe: next.ffprobePath,
+        envFfmpeg: config.ffmpegPath,
+        envFfprobe: config.ffprobePath,
+      });
     }
-    if (next.mdnsEnabled !== prev.mdnsEnabled || next.mdnsHostname !== prev.mdnsHostname || next.serverName !== prev.serverName) {
+    if (
+      next.mdnsEnabled !== prev.mdnsEnabled ||
+      next.mdnsHostname !== prev.mdnsHostname ||
+      next.serverName !== prev.serverName
+    ) {
       restartDiscovery();
     }
   });
 
   tracker.onStreamEvent((event, s) => {
-    log.info({ svc: 'stream', ip: s.ip, videoId: s.videoId, title: s.title, mode: s.mode }, event === 'start' ? 'stream started' : 'stream stopped');
+    log.info(
+      { svc: 'stream', ip: s.ip, videoId: s.videoId, title: s.title, mode: s.mode },
+      event === 'start' ? 'stream started' : 'stream stopped',
+    );
   });
 
   tracker.start();

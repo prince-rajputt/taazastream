@@ -8,7 +8,10 @@ async function main() {
   const config = loadConfig();
   const log = pino(loggerOptions(config));
 
-  log.info({ version: APP_VERSION, node: process.version, env: config.env }, 'TaazaStream starting');
+  log.info(
+    { version: APP_VERSION, node: process.version, env: config.env },
+    'TaazaStream starting',
+  );
 
   let ctx;
   try {
@@ -87,7 +90,10 @@ async function main() {
   process.on('SIGTERM', () => void stop('SIGTERM'));
   process.on('SIGBREAK', () => void stop('SIGBREAK')); // Ctrl+Break / console close on Windows
   process.on('unhandledRejection', (reason) => {
-    log.error({ err: reason instanceof Error ? reason.message : String(reason) }, 'unhandled promise rejection');
+    log.error(
+      { err: reason instanceof Error ? reason.message : String(reason) },
+      'unhandled promise rejection',
+    );
   });
 }
 

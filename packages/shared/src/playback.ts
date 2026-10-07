@@ -5,9 +5,30 @@ import type { ClientCapabilities, PlaybackMode, QualityId, QualityOption } from 
  * high enough to look good on a TV, low enough for several concurrent viewers.
  */
 export const QUALITY_PRESETS: Record<Exclude<QualityId, 'original'>, QualityPreset> = {
-  '1080p': { id: '1080p', height: 1080, width: 1920, videoKbps: 6000, maxrateKbps: 7500, audioKbps: 192 },
-  '720p': { id: '720p', height: 720, width: 1280, videoKbps: 3000, maxrateKbps: 3800, audioKbps: 160 },
-  '480p': { id: '480p', height: 480, width: 854, videoKbps: 1400, maxrateKbps: 1800, audioKbps: 128 },
+  '1080p': {
+    id: '1080p',
+    height: 1080,
+    width: 1920,
+    videoKbps: 6000,
+    maxrateKbps: 7500,
+    audioKbps: 192,
+  },
+  '720p': {
+    id: '720p',
+    height: 720,
+    width: 1280,
+    videoKbps: 3000,
+    maxrateKbps: 3800,
+    audioKbps: 160,
+  },
+  '480p': {
+    id: '480p',
+    height: 480,
+    width: 854,
+    videoKbps: 1400,
+    maxrateKbps: 1800,
+    audioKbps: 128,
+  },
 };
 
 export interface QualityPreset {
@@ -31,7 +52,8 @@ export const BASELINE_CAPABILITIES: ClientCapabilities = {
 export function normalizeContainer(container: string | null | undefined): string | null {
   if (!container) return null;
   const c = container.toLowerCase();
-  if (c.includes('mp4') || c.includes('mov') || c.includes('m4v') || c.includes('3gp')) return 'mp4';
+  if (c.includes('mp4') || c.includes('mov') || c.includes('m4v') || c.includes('3gp'))
+    return 'mp4';
   // ffprobe reports "matroska,webm" for both; the scanner stores the real family ("webm"/"mkv").
   if (c.includes('matroska') || c === 'mkv') return 'mkv';
   if (c.includes('webm')) return 'webm';
@@ -107,7 +129,11 @@ export function decidePlayback(
 ): PlaybackDecision {
   const container = normalizeContainer(source.container);
   const video = normalizeCodec(source.videoCodec);
-  const audioIndex = clampIndex(req.audioIndex, source.audioCodecs.length, source.defaultAudioIndex);
+  const audioIndex = clampIndex(
+    req.audioIndex,
+    source.audioCodecs.length,
+    source.defaultAudioIndex,
+  );
   const audio = normalizeCodec(source.audioCodecs[audioIndex] ?? null);
   const hlsAvailable = caps.hls !== 'none';
 
@@ -205,7 +231,9 @@ export function qualityOptionsFor(sourceHeight: number | null): QualityOption[] 
 }
 
 export function encodeCapabilities(caps: ClientCapabilities): string {
-  return [caps.video.join(','), caps.audio.join(','), caps.containers.join(','), caps.hls].join('|');
+  return [caps.video.join(','), caps.audio.join(','), caps.containers.join(','), caps.hls].join(
+    '|',
+  );
 }
 
 export function decodeCapabilities(value: string | undefined | null): ClientCapabilities {

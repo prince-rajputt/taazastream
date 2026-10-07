@@ -1,6 +1,16 @@
 import type { AuthState } from '@taazastream/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Database, FolderOpen, Gauge, Library, LogOut, MonitorSmartphone, Settings, ShieldCheck } from 'lucide-react';
+import {
+  ArrowLeft,
+  Database,
+  FolderOpen,
+  Gauge,
+  Library,
+  LogOut,
+  MonitorSmartphone,
+  Settings,
+  ShieldCheck,
+} from 'lucide-react';
 import { useState } from 'react';
 import { Link, NavLink, Navigate, Route, Routes } from 'react-router';
 import { Logo } from '../components/Logo';
@@ -16,7 +26,11 @@ import SettingsPage from './Settings';
 import { Button, ErrorText, Field, Input } from './ui';
 
 export function useAuthState() {
-  return useQuery({ queryKey: ['auth'], queryFn: () => api.get<AuthState>('/api/auth/state'), staleTime: 30_000 });
+  return useQuery({
+    queryKey: ['auth'],
+    queryFn: () => api.get<AuthState>('/api/auth/state'),
+    staleTime: 30_000,
+  });
 }
 
 function AuthScreen({ state }: { state: AuthState }) {
@@ -39,15 +53,20 @@ function AuthScreen({ state }: { state: AuthState }) {
       <div className="relative w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
           <Logo />
-          <h1 className="font-display text-2xl font-semibold">{setup ? 'Create the admin account' : 'Admin sign in'}</h1>
+          <h1 className="font-display text-2xl font-semibold">
+            {setup ? 'Create the admin account' : 'Admin sign in'}
+          </h1>
           <p className="text-sm text-muted">
-            {setup ? 'This account manages folders, scanning and settings. Viewers never need an account.' : 'Manage your TaazaStream server.'}
+            {setup
+              ? 'This account manages folders, scanning and settings. Viewers never need an account.'
+              : 'Manage your TaazaStream server.'}
           </p>
         </div>
         {setup && !state.setupAllowedFromHere ? (
           <div className="rounded-2xl border border-line bg-surface p-6 text-sm leading-relaxed text-muted">
             <ShieldCheck className="mb-3 h-6 w-6 text-brand-400" />
-            For security, the first admin account can only be created <strong className="text-fg">on the server PC itself</strong>. Open
+            For security, the first admin account can only be created{' '}
+            <strong className="text-fg">on the server PC itself</strong>. Open
             <span className="mx-1 font-mono text-fg">http://localhost:3000/admin</span>
             in a browser on that computer.
           </div>
@@ -59,18 +78,60 @@ function AuthScreen({ state }: { state: AuthState }) {
             }}
             className="space-y-4 rounded-2xl border border-line bg-surface p-6"
           >
-            <Field label="Username">{(id) => <Input id={id} autoComplete="username" required value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />}</Field>
-            <Field label="Password" hint={setup ? 'At least 10 characters.' : undefined}>
-              {(id) => <Input id={id} type="password" autoComplete={setup ? 'new-password' : 'current-password'} required minLength={setup ? 10 : 1} value={password} onChange={(e) => setPassword(e.target.value)} />}
+            <Field label="Username">
+              {(id) => (
+                <Input
+                  id={id}
+                  autoComplete="username"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoFocus
+                />
+              )}
             </Field>
-            {setup && <Field label="Confirm password">{(id) => <Input id={id} type="password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} />}</Field>}
+            <Field label="Password" hint={setup ? 'At least 10 characters.' : undefined}>
+              {(id) => (
+                <Input
+                  id={id}
+                  type="password"
+                  autoComplete={setup ? 'new-password' : 'current-password'}
+                  required
+                  minLength={setup ? 10 : 1}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              )}
+            </Field>
+            {setup && (
+              <Field label="Confirm password">
+                {(id) => (
+                  <Input
+                    id={id}
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                  />
+                )}
+              </Field>
+            )}
             <ErrorText error={mutation.error} />
-            <Button type="submit" variant="primary" className="w-full" disabled={mutation.isPending}>
+            <Button
+              type="submit"
+              variant="primary"
+              className="w-full"
+              disabled={mutation.isPending}
+            >
               {mutation.isPending ? 'Please wait…' : setup ? 'Create account' : 'Sign in'}
             </Button>
           </form>
         )}
-        <Link to="/" className="mt-6 flex items-center justify-center gap-2 text-sm text-muted hover:text-fg">
+        <Link
+          to="/"
+          className="mt-6 flex items-center justify-center gap-2 text-sm text-muted hover:text-fg"
+        >
           <ArrowLeft className="h-4 w-4" /> Back to TaazaStream
         </Link>
       </div>
@@ -115,12 +176,23 @@ export default function AdminApp() {
           <Link to="/" aria-label="Back to TaazaStream" className="block rounded-lg">
             <Logo />
           </Link>
-          <p className="mt-1 hidden text-xs tracking-[0.2em] text-faint uppercase md:block">Server admin</p>
-          <Button variant="ghost" size="sm" onClick={() => logout.mutate()} className="md:hidden" aria-label="Sign out">
+          <p className="mt-1 hidden text-xs tracking-[0.2em] text-faint uppercase md:block">
+            Server admin
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => logout.mutate()}
+            className="md:hidden"
+            aria-label="Sign out"
+          >
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
-        <nav aria-label="Admin" className="flex gap-1 overflow-x-auto px-3 pb-3 scrollbar-none md:flex-col md:px-3">
+        <nav
+          aria-label="Admin"
+          className="flex gap-1 overflow-x-auto px-3 pb-3 scrollbar-none md:flex-col md:px-3"
+        >
           {NAV.map((n) => (
             <NavLink
               key={n.to}
@@ -158,7 +230,15 @@ export default function AdminApp() {
   );
 }
 
-export function AdminHeader({ title, description, action }: { title: string; description?: string; action?: React.ReactNode }) {
+export function AdminHeader({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+}) {
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4 md:mb-8">
       <div>

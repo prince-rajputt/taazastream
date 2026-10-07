@@ -26,7 +26,10 @@ export function ok<T>(data: T): ApiSuccess<T> {
 }
 
 export function failure(code: ApiErrorCode, message: string, details?: unknown): ApiFailure {
-  return { ok: false, error: details === undefined ? { code, message } : { code, message, details } };
+  return {
+    ok: false,
+    error: details === undefined ? { code, message } : { code, message, details },
+  };
 }
 
 /** Map low-level Node filesystem errors to friendly API errors. */

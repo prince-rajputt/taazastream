@@ -35,7 +35,9 @@ import { parse } from '../http/validate';
 
 const img = LocalImageServer.urlFor;
 
-async function readUpload(request: FastifyRequest): Promise<{ data: Buffer; filename: string; fields: Record<string, string> }> {
+async function readUpload(
+  request: FastifyRequest,
+): Promise<{ data: Buffer; filename: string; fields: Record<string, string> }> {
   if (!request.isMultipart()) throw badRequest('Expected a multipart/form-data upload');
   const file = await request.file();
   if (!file) throw badRequest('No file uploaded');
@@ -43,7 +45,8 @@ async function readUpload(request: FastifyRequest): Promise<{ data: Buffer; file
   const fields: Record<string, string> = {};
   for (const [k, v] of Object.entries(file.fields)) {
     const field = Array.isArray(v) ? v[0] : v;
-    if (field && 'value' in field && typeof field.value === 'string') fields[k] = field.value.slice(0, 200);
+    if (field && 'value' in field && typeof field.value === 'string')
+      fields[k] = field.value.slice(0, 200);
   }
   return { data, filename: file.filename, fields };
 }
@@ -53,7 +56,18 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
 
   /* ------------------------------ Dashboard ------------------------------ */
   app.get('/api/admin/stats', async () => {
-    const [movies, series, seasons, episodes, videos, missingVideos, folders, size, lastScan, cacheBytes] = await Promise.all([
+    const [
+      movies,
+      series,
+      seasons,
+      episodes,
+      videos,
+      missingVideos,
+      folders,
+      size,
+      lastScan,
+      cacheBytes,
+    ] = await Promise.all([
       db.movie.count(),
       db.series.count(),
       db.season.count(),
@@ -72,7 +86,15 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
     const mem = process.memoryUsage();
     const settings = ctx.settings.get();
     const stats: AdminStats = {
-      counts: { movies, series, seasons, episodes, videos, missingVideos, mediaFolders: folders.length },
+      counts: {
+        movies,
+        series,
+        seasons,
+        episodes,
+        videos,
+        missingVideos,
+        mediaFolders: folders.length,
+      },
       storage: { libraryBytes: Number(size._sum.sizeBytes ?? 0n), disks, cacheBytes },
       system: {
         cpuPercent: ctx.cpu.percent,
@@ -92,7 +114,8 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
         maxTranscodes: settings.maxTranscodes,
       },
       devices: { connected: ctx.tracker.connectedCount() },
-      lastScan: ctx.scanner.status ??
+      lastScan:
+        ctx.scanner.status ??
         (lastScan
           ? {
               id: lastScan.id,
@@ -120,12 +143,24 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
 
   app.get('/api/admin/server', async () => {
     const info = ctx.serverInfo();
-    const qrSvg = await QRCode.toString(info.primaryUrl, { type: 'svg', margin: 1, color: { dark: '#0b0b10', light: '#ffffff' } });
+    const qrSvg = await QRCode.toString(info.primaryUrl, {
+      type: 'svg',
+      margin: 1,
+      color: { dark: '#0b0b10', light: '#ffffff' },
+    });
     return ok({ ...info, qrSvg });
   });
 
   /* ------------------------------ Media folders ------------------------------ */
-  const folderInfo = async (f: { id: string; path: string; label: string; kind: string; enabled: boolean; lastScannedAt: Date | null; createdAt: Date }): Promise<MediaFolderInfo> => ({
+  const folderInfo = async (f: {
+    id: string;
+    path: string;
+    label: string;
+    kind: string;
+    enabled: boolean;
+    lastScannedAt: Date | null;
+    createdAt: Date;
+  }): Promise<MediaFolderInfo> => ({
     id: f.id,
     path: f.path,
     label: f.label,
@@ -145,8 +180,10 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
   app.post('/api/admin/media-folders', async (request) => {
     const body = parse(mediaFolderSchema, request.body);
     const resolved = path.resolve(body.path);
-    if (!path.isAbsolute(body.path)) throw badRequest('Use an absolute path, e.g. D:\\TaazaStream\\Movies');
-    if (isForbiddenMediaRoot(resolved)) throw badRequest('This system folder cannot be used as a media folder');
+    if (!path.isAbsolute(body.path))
+      throw badRequest('Use an absolute path, e.g. D:\\TaazaStream\\Movies');
+    if (isForbiddenMediaRoot(resolved))
+      throw badRequest('This system folder cannot be used as a media folder');
     let st;
     try {
       st = await stat(resolved);
@@ -160,10 +197,15 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
       const a = norm(path.resolve(f.path));
       const b = norm(resolved);
       if (a === b) throw conflict('This folder is already in the library');
-      if (b.startsWith(a + path.sep) || a.startsWith(b + path.sep)) throw conflict(`Overlaps with existing folder ${f.path}`);
+      if (b.startsWith(a + path.sep) || a.startsWith(b + path.sep))
+        throw conflict(`Overlaps with existing folder ${f.path}`);
     }
     const folder = await db.mediaFolder.create({
-      data: { path: resolved, label: body.label || path.basename(resolved) || resolved, kind: body.kind },
+      data: {
+        path: resolved,
+        label: body.label || path.basename(resolved) || resolved,
+        kind: body.kind,
+      },
     });
     ctx.log.info({ path: resolved, kind: body.kind }, 'media folder added');
     return ok(await folderInfo(folder));
@@ -201,14 +243,27 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
         }
         return ok({ path: null, parent: null, entries: drives });
       }
-      return ok({ path: '/', parent: null, entries: [{ name: '/', path: '/' }, { name: os.homedir(), path: os.homedir() }] });
+      return ok({
+        path: '/',
+        parent: null,
+        entries: [
+          { name: '/', path: '/' },
+          { name: os.homedir(), path: os.homedir() },
+        ],
+      });
     }
     const dir = path.resolve(q.path);
     let names: string[] = [];
     try {
       const entries = await readdir(dir, { withFileTypes: true });
       names = entries
-        .filter((e) => e.isDirectory() && !e.name.startsWith('.') && !e.name.startsWith('$') && e.name !== 'System Volume Information')
+        .filter(
+          (e) =>
+            e.isDirectory() &&
+            !e.name.startsWith('.') &&
+            !e.name.startsWith('$') &&
+            e.name !== 'System Volume Information',
+        )
         .map((e) => e.name)
         .sort((a, b) => a.localeCompare(b));
     } catch {
@@ -225,7 +280,8 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
   /* ------------------------------ Scanning ------------------------------ */
   app.post('/api/admin/scan', async (request) => {
     const body = parse(scanRequestSchema, request.body ?? {});
-    if (body.folderId && !(await db.mediaFolder.findUnique({ where: { id: body.folderId } }))) throw notFound('Media folder');
+    if (body.folderId && !(await db.mediaFolder.findUnique({ where: { id: body.folderId } })))
+      throw notFound('Media folder');
     if (!(await db.mediaFolder.count())) throw badRequest('Add a media folder first');
     return ok(await ctx.scanner.start(body));
   });
@@ -257,14 +313,21 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
   /* ------------------------------ Library ------------------------------ */
   app.get('/api/admin/library', async (request) => {
     const q = parse(
-      z.object({ kind: z.enum(['all', 'movie', 'series']).default('all'), q: z.string().max(100).optional(), missing: z.enum(['0', '1']).optional() }),
+      z.object({
+        kind: z.enum(['all', 'movie', 'series']).default('all'),
+        q: z.string().max(100).optional(),
+        missing: z.enum(['0', '1']).optional(),
+      }),
       request.query,
     );
     const titleFilter = q.q ? { title: { contains: q.q } } : {};
     const items: AdminLibraryItem[] = [];
     if (q.kind !== 'series') {
       const movies = await db.movie.findMany({
-        where: { ...titleFilter, ...(q.missing === '1' ? { videos: { some: { missing: true } } } : {}) },
+        where: {
+          ...titleFilter,
+          ...(q.missing === '1' ? { videos: { some: { missing: true } } } : {}),
+        },
         include: { genres: true, videos: { select: { missing: true, relPath: true } } },
         orderBy: { addedAt: 'desc' },
         take: 1000,
@@ -289,7 +352,11 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
     if (q.kind !== 'movie') {
       const series = await db.series.findMany({
         where: titleFilter,
-        include: { genres: true, _count: { select: { episodes: true } }, episodes: { select: { videos: { select: { missing: true } } } } },
+        include: {
+          genres: true,
+          _count: { select: { episodes: true } },
+          episodes: { select: { videos: { select: { missing: true } } } },
+        },
         orderBy: { addedAt: 'desc' },
         take: 500,
       });
@@ -318,7 +385,9 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
     return ok(items);
   });
 
-  const adminVideo = (v: Prisma.VideoFileGetPayload<{ include: { audioTracks: true; subtitles: true } }>): AdminVideoFile => {
+  const adminVideo = (
+    v: Prisma.VideoFileGetPayload<{ include: { audioTracks: true; subtitles: true } }>,
+  ): AdminVideoFile => {
     const info = ctx.catalog.videoInfo(v);
     return {
       id: v.id,
@@ -396,12 +465,16 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
 
   app.delete('/api/admin/movies/:id', async (request) => {
     const { id } = parse(idParamsSchema, request.params);
-    const m = await db.movie.findUnique({ where: { id }, include: { videos: { select: { thumbImage: true } } } });
+    const m = await db.movie.findUnique({
+      where: { id },
+      include: { videos: { select: { thumbImage: true } } },
+    });
     if (!m) throw notFound('Movie');
     await db.videoFile.deleteMany({ where: { movieId: id } });
     await db.movie.delete({ where: { id } });
     await ctx.search.remove('movie', id);
-    for (const name of [m.posterImage, m.backdropImage, ...m.videos.map((v) => v.thumbImage)]) await ctx.images.remove(name);
+    for (const name of [m.posterImage, m.backdropImage, ...m.videos.map((v) => v.thumbImage)])
+      await ctx.images.remove(name);
     ctx.log.info({ movieId: id, title: m.title }, 'movie removed from database (files untouched)');
     return ok({ deleted: true });
   });
@@ -414,7 +487,12 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
         genres: true,
         seasons: {
           orderBy: { number: 'asc' },
-          include: { episodes: { orderBy: { number: 'asc' }, include: { videos: { include: { audioTracks: true, subtitles: true } } } } },
+          include: {
+            episodes: {
+              orderBy: { number: 'asc' },
+              include: { videos: { include: { audioTracks: true, subtitles: true } } },
+            },
+          },
         },
       },
     });
@@ -471,13 +549,20 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
 
   app.delete('/api/admin/series/:id', async (request) => {
     const { id } = parse(idParamsSchema, request.params);
-    const s = await db.series.findUnique({ where: { id }, include: { episodes: { select: { id: true, thumbImage: true } } } });
+    const s = await db.series.findUnique({
+      where: { id },
+      include: { episodes: { select: { id: true, thumbImage: true } } },
+    });
     if (!s) throw notFound('Series');
     await db.videoFile.deleteMany({ where: { episodeId: { in: s.episodes.map((e) => e.id) } } });
     await db.series.delete({ where: { id } });
     await ctx.search.remove('series', id);
-    for (const name of [s.posterImage, s.backdropImage, ...s.episodes.map((e) => e.thumbImage)]) await ctx.images.remove(name);
-    ctx.log.info({ seriesId: id, title: s.title }, 'series removed from database (files untouched)');
+    for (const name of [s.posterImage, s.backdropImage, ...s.episodes.map((e) => e.thumbImage)])
+      await ctx.images.remove(name);
+    ctx.log.info(
+      { seriesId: id, title: s.title },
+      'series removed from database (files untouched)',
+    );
     return ok({ deleted: true });
   });
 
@@ -493,7 +578,11 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
     if (body.seasonNumber !== undefined) {
       const season = await db.season.upsert({
         where: { seriesId_number: { seriesId: ep.seriesId, number: body.seasonNumber } },
-        create: { seriesId: ep.seriesId, number: body.seasonNumber, title: `Season ${body.seasonNumber}` },
+        create: {
+          seriesId: ep.seriesId,
+          number: body.seasonNumber,
+          title: `Season ${body.seasonNumber}`,
+        },
         update: {},
       });
       data.seasonId = season.id;
@@ -523,9 +612,18 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
   });
 
   /* ------------------------------ Artwork ------------------------------ */
-  const artworkParams = z.object({ kind: z.enum(['movies', 'series']), id: idSchema, role: z.enum(['poster', 'backdrop']) });
+  const artworkParams = z.object({
+    kind: z.enum(['movies', 'series']),
+    id: idSchema,
+    role: z.enum(['poster', 'backdrop']),
+  });
 
-  const setArtwork = async (kind: 'movies' | 'series', id: string, role: 'poster' | 'backdrop', name: string) => {
+  const setArtwork = async (
+    kind: 'movies' | 'series',
+    id: string,
+    role: 'poster' | 'backdrop',
+    name: string,
+  ) => {
     const field = role === 'poster' ? 'posterImage' : 'backdropImage';
     if (kind === 'movies') {
       const m = await db.movie.findUnique({ where: { id } });
@@ -560,11 +658,23 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
     const video =
       params.kind === 'movies'
         ? await db.videoFile.findFirst({ where: { movieId: params.id, missing: false } })
-        : await db.videoFile.findFirst({ where: { episode: { seriesId: params.id }, missing: false } });
+        : await db.videoFile.findFirst({
+            where: { episode: { seriesId: params.id }, missing: false },
+          });
     if (!video) throw notFound('Playable video');
     const at = Math.min(body.atSec, Math.max(0, video.durationSec - 1));
-    const name = await ctx.images.fromVideo(video.path, at, params.role === 'poster' ? 'poster' : 'backdrop', params.id);
-    if (!name) throw new AppError(500, 'TRANSCODE_FAILED', 'Could not extract a frame (is FFmpeg installed?)');
+    const name = await ctx.images.fromVideo(
+      video.path,
+      at,
+      params.role === 'poster' ? 'poster' : 'backdrop',
+      params.id,
+    );
+    if (!name)
+      throw new AppError(
+        500,
+        'TRANSCODE_FAILED',
+        'Could not extract a frame (is FFmpeg installed?)',
+      );
     await setArtwork(params.kind, params.id, params.role, name);
     return ok({ url: img(name) });
   });
@@ -577,13 +687,27 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
     const upload = await readUpload(request);
     const ext = path.extname(upload.filename).toLowerCase();
     if (ext !== '.srt' && ext !== '.vtt') throw badRequest('Upload an .srt or .vtt file');
-    const language = /^[a-z]{2,3}$/.test(upload.fields.language ?? '') ? upload.fields.language! : null;
-    const label = (upload.fields.label ?? '').trim() || (language ? language.toUpperCase() : 'Uploaded');
+    const language = /^[a-z]{2,3}$/.test(upload.fields.language ?? '')
+      ? upload.fields.language!
+      : null;
+    const label =
+      (upload.fields.label ?? '').trim() || (language ? language.toUpperCase() : 'Uploaded');
     const sub = await db.subtitle.create({
-      data: { videoFileId: id, source: 'uploaded', format: 'vtt', language, label, path: 'pending' },
+      data: {
+        videoFileId: id,
+        source: 'uploaded',
+        format: 'vtt',
+        language,
+        label,
+        path: 'pending',
+      },
     });
     try {
-      const name = await ctx.subtitles.saveUpload(sub.id, upload.data, ext === '.srt' ? 'srt' : 'vtt');
+      const name = await ctx.subtitles.saveUpload(
+        sub.id,
+        upload.data,
+        ext === '.srt' ? 'srt' : 'vtt',
+      );
       await db.subtitle.update({ where: { id: sub.id }, data: { path: name } });
     } catch (err) {
       await db.subtitle.delete({ where: { id: sub.id } });
@@ -596,7 +720,10 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
     const { id } = parse(idParamsSchema, request.params);
     const sub = await db.subtitle.findUnique({ where: { id } });
     if (!sub) throw notFound('Subtitle');
-    if (sub.source !== 'uploaded') throw badRequest('Only uploaded subtitles can be deleted. Remove sidecar files from disk and rescan.');
+    if (sub.source !== 'uploaded')
+      throw badRequest(
+        'Only uploaded subtitles can be deleted. Remove sidecar files from disk and rescan.',
+      );
     await db.subtitle.delete({ where: { id } });
     await ctx.subtitles.removeUpload(sub.path);
     return ok({ deleted: true });
@@ -609,7 +736,8 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
     const body = parse(settingsPatchSchema, request.body);
     for (const key of ['ffmpegPath', 'ffprobePath'] as const) {
       const p = body[key];
-      if (p && (!path.isAbsolute(p) || !existsSync(p))) throw badRequest(`${key}: file not found on the server`);
+      if (p && (!path.isAbsolute(p) || !existsSync(p)))
+        throw badRequest(`${key}: file not found on the server`);
     }
     const next = await ctx.settings.update(body);
     ctx.log.info({ keys: Object.keys(body) }, 'settings updated');
@@ -617,7 +745,9 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
   });
 
   /* ------------------------------ Cache / search ------------------------------ */
-  app.get('/api/admin/cache', async () => ok({ hlsBytes: await ctx.hls.cacheSize(), activeJobs: ctx.hls.jobCount }));
+  app.get('/api/admin/cache', async () =>
+    ok({ hlsBytes: await ctx.hls.cacheSize(), activeJobs: ctx.hls.jobCount }),
+  );
   app.post('/api/admin/cache/clear', async () => {
     await ctx.hls.clearCache();
     return ok({ cleared: true });
@@ -635,7 +765,10 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext) {
     const full = ctx.backup.resolve(file);
     if (!full) throw notFound('Backup');
     reply.header('Content-Disposition', `attachment; filename="${file}"`);
-    reply.header('Content-Type', file.endsWith('.json') ? 'application/json' : 'application/octet-stream');
+    reply.header(
+      'Content-Type',
+      file.endsWith('.json') ? 'application/json' : 'application/octet-stream',
+    );
     return reply.send(createReadStream(full));
   });
   app.delete('/api/admin/backups/:file', async (request) => {

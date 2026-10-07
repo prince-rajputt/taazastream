@@ -30,7 +30,15 @@ export class ProgressService {
   private pending = new Map<string, Pending>();
   private timer: NodeJS.Timeout | null = null;
   private flushing: Promise<void> | null = null;
-  private videoCache = new Map<string, { movieId: string | null; episodeId: string | null; seriesId: string | null; durationSec: number }>();
+  private videoCache = new Map<
+    string,
+    {
+      movieId: string | null;
+      episodeId: string | null;
+      seriesId: string | null;
+      durationSec: number;
+    }
+  >();
   writes = 0;
 
   constructor(
@@ -55,17 +63,31 @@ export class ProgressService {
     if (cached) return cached;
     const v = await this.db.videoFile.findUnique({
       where: { id: videoId },
-      select: { movieId: true, episodeId: true, durationSec: true, episode: { select: { seriesId: true } } },
+      select: {
+        movieId: true,
+        episodeId: true,
+        durationSec: true,
+        episode: { select: { seriesId: true } },
+      },
     });
     if (!v) throw notFound('Video');
-    const meta = { movieId: v.movieId, episodeId: v.episodeId, seriesId: v.episode?.seriesId ?? null, durationSec: v.durationSec };
+    const meta = {
+      movieId: v.movieId,
+      episodeId: v.episodeId,
+      seriesId: v.episode?.seriesId ?? null,
+      durationSec: v.durationSec,
+    };
     if (this.videoCache.size > 2000) this.videoCache.clear();
     this.videoCache.set(videoId, meta);
     return meta;
   }
 
   /** Record a progress report. `immediate` forces a flush (pause, stop, page hide). */
-  async record(userId: string, input: WatchProgressInput, immediate = false): Promise<{ completed: boolean }> {
+  async record(
+    userId: string,
+    input: WatchProgressInput,
+    immediate = false,
+  ): Promise<{ completed: boolean }> {
     const meta = await this.videoMeta(input.videoId);
     const durationSec = input.durationSec > 0 ? input.durationSec : meta.durationSec;
     const positionSec = Math.min(input.positionSec, durationSec || input.positionSec);
@@ -113,7 +135,12 @@ export class ProgressService {
                 durationSec: p.durationSec,
                 completed: p.completed,
               },
-              update: { positionSec: p.positionSec, durationSec: p.durationSec, completed: p.completed, hidden: false },
+              update: {
+                positionSec: p.positionSec,
+                durationSec: p.durationSec,
+                completed: p.completed,
+                hidden: false,
+              },
             });
             if (p.sessionId) {
               const existing = await tx.watchHistory.findUnique({
@@ -123,7 +150,12 @@ export class ProgressService {
               if (existing) {
                 await tx.watchHistory.update({
                   where: { id: existing.id },
-                  data: { positionSec: p.positionSec, durationSec: p.durationSec, completed: p.completed, endedAt: new Date(p.at) },
+                  data: {
+                    positionSec: p.positionSec,
+                    durationSec: p.durationSec,
+                    completed: p.completed,
+                    endedAt: new Date(p.at),
+                  },
                 });
               } else {
                 await tx.watchHistory.create({
@@ -137,8 +169,16 @@ export class ProgressService {
                   },
                 });
                 // New viewing session → popularity counters.
-                if (p.movieId) await tx.movie.update({ where: { id: p.movieId }, data: { playCount: { increment: 1 } } });
-                if (p.seriesId) await tx.series.update({ where: { id: p.seriesId }, data: { playCount: { increment: 1 } } });
+                if (p.movieId)
+                  await tx.movie.update({
+                    where: { id: p.movieId },
+                    data: { playCount: { increment: 1 } },
+                  });
+                if (p.seriesId)
+                  await tx.series.update({
+                    where: { id: p.seriesId },
+                    data: { playCount: { increment: 1 } },
+                  });
               }
             }
           }
@@ -160,7 +200,11 @@ export class ProgressService {
 
   async resumePosition(userId: string, videoId: string): Promise<number> {
     const pending = this.peek(userId, videoId);
-    const row = pending ?? (await this.db.continueWatching.findUnique({ where: { userId_videoFileId: { userId, videoFileId: videoId } } }));
+    const row =
+      pending ??
+      (await this.db.continueWatching.findUnique({
+        where: { userId_videoFileId: { userId, videoFileId: videoId } },
+      }));
     if (!row || row.completed || row.positionSec < 15) return 0;
     return Math.max(0, row.positionSec - 3); // a little pre-roll for context
   }

@@ -100,7 +100,10 @@ function extractYear(s: string): { year: number | null; index: number } {
  * Parse a video file path into movie/episode information.
  * `folderKind` lets admins force a library type ("movies" never yields episodes).
  */
-export function parseMediaPath(filePath: string, folderKind: 'movies' | 'series' | 'mixed' = 'mixed'): ParsedName {
+export function parseMediaPath(
+  filePath: string,
+  folderKind: 'movies' | 'series' | 'mixed' = 'mixed',
+): ParsedName {
   const ext = path.extname(filePath);
   const base = path.basename(filePath, ext);
   const parentDir = path.basename(path.dirname(filePath));
@@ -128,7 +131,11 @@ export function parseMediaPath(filePath: string, folderKind: 'movies' | 'series'
   return parseMovie(base, parentDir);
 }
 
-function parseEpisode(base: string, parentDir: string, grandParentDir: string): ParsedEpisode | null {
+function parseEpisode(
+  base: string,
+  parentDir: string,
+  grandParentDir: string,
+): ParsedEpisode | null {
   let m = SXXEXX.exec(base);
   let season: number | null = null;
   let episode: number | null = null;
@@ -200,7 +207,8 @@ export function parseSubtitleSidecar(
 ): { language: string | null; forced: boolean; isDefault: boolean } | null {
   const ext = path.extname(subtitleFile);
   const base = path.basename(subtitleFile, ext);
-  if (base.toLowerCase() === videoBase.toLowerCase()) return { language: null, forced: false, isDefault: false };
+  if (base.toLowerCase() === videoBase.toLowerCase())
+    return { language: null, forced: false, isDefault: false };
   if (!base.toLowerCase().startsWith(`${videoBase.toLowerCase()}.`)) return null;
   const flags = base
     .slice(videoBase.length + 1)
@@ -209,21 +217,70 @@ export function parseSubtitleSidecar(
     .filter(Boolean);
   const forced = flags.includes('forced');
   const isDefault = flags.includes('default');
-  const language = flags.find((f) => /^[a-z]{2,3}(-[a-z]{2})?$/.test(f) && !['sdh', 'cc'].includes(f)) ?? null;
+  const language =
+    flags.find((f) => /^[a-z]{2,3}(-[a-z]{2})?$/.test(f) && !['sdh', 'cc'].includes(f)) ?? null;
   return { language, forced, isDefault };
 }
 
 const LANGUAGE_NAMES: Record<string, string> = {
-  en: 'English', eng: 'English', hi: 'Hindi', hin: 'Hindi', es: 'Spanish', spa: 'Spanish',
-  fr: 'French', fre: 'French', fra: 'French', de: 'German', ger: 'German', deu: 'German',
-  it: 'Italian', ita: 'Italian', pt: 'Portuguese', por: 'Portuguese', ru: 'Russian', rus: 'Russian',
-  ja: 'Japanese', jpn: 'Japanese', ko: 'Korean', kor: 'Korean', zh: 'Chinese', chi: 'Chinese',
-  zho: 'Chinese', ar: 'Arabic', ara: 'Arabic', ta: 'Tamil', tam: 'Tamil', te: 'Telugu', tel: 'Telugu',
-  ml: 'Malayalam', mal: 'Malayalam', kn: 'Kannada', kan: 'Kannada', bn: 'Bengali', ben: 'Bengali',
-  mr: 'Marathi', mar: 'Marathi', pa: 'Punjabi', pan: 'Punjabi', ur: 'Urdu', urd: 'Urdu',
-  tr: 'Turkish', tur: 'Turkish', nl: 'Dutch', dut: 'Dutch', nld: 'Dutch', sv: 'Swedish', swe: 'Swedish',
-  pl: 'Polish', pol: 'Polish', id: 'Indonesian', ind: 'Indonesian', th: 'Thai', tha: 'Thai',
-  vi: 'Vietnamese', vie: 'Vietnamese',
+  en: 'English',
+  eng: 'English',
+  hi: 'Hindi',
+  hin: 'Hindi',
+  es: 'Spanish',
+  spa: 'Spanish',
+  fr: 'French',
+  fre: 'French',
+  fra: 'French',
+  de: 'German',
+  ger: 'German',
+  deu: 'German',
+  it: 'Italian',
+  ita: 'Italian',
+  pt: 'Portuguese',
+  por: 'Portuguese',
+  ru: 'Russian',
+  rus: 'Russian',
+  ja: 'Japanese',
+  jpn: 'Japanese',
+  ko: 'Korean',
+  kor: 'Korean',
+  zh: 'Chinese',
+  chi: 'Chinese',
+  zho: 'Chinese',
+  ar: 'Arabic',
+  ara: 'Arabic',
+  ta: 'Tamil',
+  tam: 'Tamil',
+  te: 'Telugu',
+  tel: 'Telugu',
+  ml: 'Malayalam',
+  mal: 'Malayalam',
+  kn: 'Kannada',
+  kan: 'Kannada',
+  bn: 'Bengali',
+  ben: 'Bengali',
+  mr: 'Marathi',
+  mar: 'Marathi',
+  pa: 'Punjabi',
+  pan: 'Punjabi',
+  ur: 'Urdu',
+  urd: 'Urdu',
+  tr: 'Turkish',
+  tur: 'Turkish',
+  nl: 'Dutch',
+  dut: 'Dutch',
+  nld: 'Dutch',
+  sv: 'Swedish',
+  swe: 'Swedish',
+  pl: 'Polish',
+  pol: 'Polish',
+  id: 'Indonesian',
+  ind: 'Indonesian',
+  th: 'Thai',
+  tha: 'Thai',
+  vi: 'Vietnamese',
+  vie: 'Vietnamese',
 };
 
 export function languageLabel(code: string | null | undefined): string | null {

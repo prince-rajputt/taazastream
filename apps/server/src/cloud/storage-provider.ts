@@ -77,7 +77,9 @@ export class SupabaseStorageProvider implements StorageProvider {
 
   async put(key: string, data: Buffer | string, contentType: string): Promise<void> {
     assertKey(key);
-    const { error } = await this.client.storage.from(this.bucket).upload(key, data, { contentType, upsert: true });
+    const { error } = await this.client.storage
+      .from(this.bucket)
+      .upload(key, data, { contentType, upsert: true });
     if (error) throw new Error(error.message);
   }
 
@@ -92,7 +94,9 @@ export class SupabaseStorageProvider implements StorageProvider {
     assertKey(key);
     const dir = path.posix.dirname(key);
     const name = path.posix.basename(key);
-    const { data } = await this.client.storage.from(this.bucket).list(dir === '.' ? '' : dir, { search: name, limit: 1 });
+    const { data } = await this.client.storage
+      .from(this.bucket)
+      .list(dir === '.' ? '' : dir, { search: name, limit: 1 });
     return !!data?.some((o) => o.name === name);
   }
 
@@ -102,7 +106,10 @@ export class SupabaseStorageProvider implements StorageProvider {
     if (error) throw new Error(error.message);
     return (data ?? [])
       .filter((o) => o.id)
-      .map((o) => ({ key: `${p}/${o.name}`, size: Number((o.metadata as { size?: number } | null)?.size ?? 0) }));
+      .map((o) => ({
+        key: `${p}/${o.name}`,
+        size: Number((o.metadata as { size?: number } | null)?.size ?? 0),
+      }));
   }
 
   async delete(key: string): Promise<void> {
