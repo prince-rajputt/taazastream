@@ -9,3 +9,6 @@ onlyBuiltDependencies:
   - esbuild
   - ffmpeg-static
   - ffprobe-static
+
+overrides:
+  deepmerge-ts: '>=8.0.0'
