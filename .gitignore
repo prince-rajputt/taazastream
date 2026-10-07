@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+dev-dist/
+*.tsbuildinfo
+coverage/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local data (SQLite DBs contain private viewing data)
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+backups/
+
+# Generated caches (thumbnails, HLS segments)
+cache/
+.cache/
+
+# Media files — videos must stay on the local server, never in git
+*.mp4
+*.mkv
+*.webm
+*.mov
+*.avi
+*.m4v
+*.wmv
+*.flv
+*.m2ts
+*.mpg
+*.mpeg
+*.3gp
+*.ogv
+test-media/
+
+# Test artifacts
+playwright-report/
+test-results/
+blob-report/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / editors
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json

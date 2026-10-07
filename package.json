@@ -1,0 +1,41 @@
+{
+  "name": "taazastream",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TaazaStream — private, offline-first LAN video streaming platform.",
+  "license": "MIT",
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=20.18"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter @taazastream/server --filter @taazastream/web dev",
+    "build": "pnpm --filter @taazastream/shared build && pnpm --filter @taazastream/server build && pnpm --filter @taazastream/web build",
+    "start": "pnpm --filter @taazastream/server start",
+    "db:generate": "pnpm --filter @taazastream/server db:generate",
+    "db:migrate": "pnpm --filter @taazastream/server db:migrate",
+    "db:migrate:dev": "pnpm --filter @taazastream/server db:migrate:dev",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter @taazastream/web test:e2e",
+    "test:perf": "node scripts/perf-test.mjs",
+    "backup": "pnpm --filter @taazastream/server backup",
+    "fixtures": "node scripts/make-test-media.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@prisma/client": "6.19.3",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.9",
+    "prisma": "6.19.3",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.71.1"
+  }
+}

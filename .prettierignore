@@ -1,0 +1,10 @@
+node_modules
+dist
+dev-dist
+coverage
+pnpm-lock.yaml
+playwright-report
+test-results
+cache
+data
+prisma/migrations

@@ -1,0 +1,390 @@
+// TaazaStream — local SQLite database (primary, offline-first store).
+//
+// Video files are NEVER stored here: only filesystem references (absolute paths)
+// discovered by the media scanner inside admin-approved media folders.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  VIEWER
+}
+
+/// Admin accounts (username + scrypt hash) and viewer profiles (no password).
+model User {
+  id           String    @id @default(cuid())
+  username     String?   @unique
+  passwordHash String?
+  role         Role      @default(VIEWER)
+  displayName  String
+  color        String    @default("#f97316")
+  isKids       Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastLoginAt  DateTime?
+
+  sessions         AdminSession[]
+  watchHistory     WatchHistory[]
+  continueWatching ContinueWatching[]
+  playlists        Playlist[]
+  favorites        Favorite[]
+
+  @@index([role])
+}
+
+/// Admin login sessions. Only a SHA-256 hash of the session token is stored.
+model AdminSession {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  userId     String
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+  lastSeenAt DateTime @default(now())
+  ip         String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Genre {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  movies Movie[]
+  series Series[]
+}
+
+model Movie {
+  id             String   @id @default(cuid())
+  title          String
+  /// Normalised title used for identity matching and sorting.
+  sortTitle      String
+  originalTitle  String?
+  year           Int?
+  overview       String?
+  tagline        String?
+  /// JSON array of { name, role }.
+  cast           String   @default("[]")
+  director       String?
+  rating         Float?
+  contentRating  String?
+  /// Image file names inside the local image cache (never arbitrary paths).
+  posterImage    String?
+  backdropImage  String?
+  accent         String   @default("#f97316")
+  featured       Boolean  @default(false)
+  /// When true the scanner will not overwrite admin-edited metadata.
+  metadataLocked Boolean  @default(false)
+  playCount      Int      @default(0)
+  addedAt        DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  genres        Genre[]
+  videos        VideoFile[]
+  favorites     Favorite[]
+  playlistItems PlaylistItem[]
+  continueItems ContinueWatching[]
+
+  @@index([sortTitle, year])
+  @@index([year])
+  @@index([addedAt])
+  @@index([playCount])
+  @@index([featured])
+}
+
+model Series {
+  id             String   @id @default(cuid())
+  title          String
+  sortTitle      String   @unique
+  year           Int?
+  overview       String?
+  cast           String   @default("[]")
+  rating         Float?
+  contentRating  String?
+  posterImage    String?
+  backdropImage  String?
+  accent         String   @default("#6366f1")
+  featured       Boolean  @default(false)
+  metadataLocked Boolean  @default(false)
+  playCount      Int      @default(0)
+  addedAt        DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  genres        Genre[]
+  seasons       Season[]
+  episodes      Episode[]
+  favorites     Favorite[]
+  playlistItems PlaylistItem[]
+  continueItems ContinueWatching[]
+
+  @@index([year])
+  @@index([addedAt])
+  @@index([playCount])
+}
+
+model Season {
+  id          String   @id @default(cuid())
+  seriesId    String
+  number      Int
+  title       String?
+  overview    String?
+  posterImage String?
+  createdAt   DateTime @default(now())
+
+  series   Series    @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  episodes Episode[]
+
+  @@unique([seriesId, number])
+}
+
+model Episode {
+  id             String    @id @default(cuid())
+  seriesId       String
+  seasonId       String
+  number         Int
+  title          String
+  overview       String?
+  airDate        DateTime?
+  thumbImage     String?
+  metadataLocked Boolean   @default(false)
+  addedAt        DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  series        Series             @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  season        Season             @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  videos        VideoFile[]
+  playlistItems PlaylistItem[]
+  continueItems ContinueWatching[]
+
+  @@unique([seasonId, number])
+  @@index([seriesId])
+  @@index([addedAt])
+}
+
+/// A playable file on the local disk. `path` is absolute and always inside a MediaFolder.
+model VideoFile {
+  id          String    @id @default(cuid())
+  folderId    String
+  path        String    @unique
+  relPath     String
+  fileName    String
+  sizeBytes   BigInt
+  mtimeMs     Float
+  container   String?
+  durationSec Float     @default(0)
+  width       Int?
+  height      Int?
+  videoCodec  String?
+  videoProfile String?
+  pixFmt      String?
+  bitDepth    Int?
+  audioCodec  String?
+  bitrate     Int?
+  fps         Float?
+  thumbImage  String?
+  missing     Boolean   @default(false)
+  probeError  String?
+  probedAt    DateTime?
+  movieId     String?
+  episodeId   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  folder           MediaFolder        @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  movie            Movie?             @relation(fields: [movieId], references: [id], onDelete: SetNull)
+  episode          Episode?           @relation(fields: [episodeId], references: [id], onDelete: SetNull)
+  audioTracks      AudioTrack[]
+  subtitles        Subtitle[]
+  watchHistory     WatchHistory[]
+  continueWatching ContinueWatching[]
+
+  @@index([folderId])
+  @@index([movieId])
+  @@index([episodeId])
+  @@index([missing])
+}
+
+model Subtitle {
+  id          String   @id @default(cuid())
+  videoFileId String
+  /// embedded | sidecar | uploaded
+  source      String
+  /// Absolute stream index for embedded subtitles.
+  streamIndex Int?
+  /// Absolute path for sidecar files (inside the media folder) or a cache file name for uploads.
+  path        String?
+  format      String
+  language    String?
+  label       String
+  isDefault   Boolean  @default(false)
+  forced      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  videoFile VideoFile @relation(fields: [videoFileId], references: [id], onDelete: Cascade)
+
+  @@index([videoFileId])
+}
+
+model AudioTrack {
+  id          String  @id @default(cuid())
+  videoFileId String
+  /// Position among the file's audio streams (0-based).
+  index       Int
+  /// Absolute ffprobe stream index.
+  streamIndex Int
+  codec       String
+  language    String?
+  title       String?
+  channels    Int?
+  isDefault   Boolean @default(false)
+
+  videoFile VideoFile @relation(fields: [videoFileId], references: [id], onDelete: Cascade)
+
+  @@unique([videoFileId, index])
+}
+
+/// One row per playback session (analytics stay local).
+model WatchHistory {
+  id          String    @id @default(cuid())
+  userId      String
+  videoFileId String
+  sessionId   String?
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+  positionSec Float     @default(0)
+  durationSec Float     @default(0)
+  completed   Boolean   @default(false)
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videoFile VideoFile @relation(fields: [videoFileId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sessionId])
+  @@index([userId, startedAt])
+  @@index([videoFileId])
+}
+
+/// Latest resume position per profile and video.
+model ContinueWatching {
+  id          String   @id @default(cuid())
+  userId      String
+  videoFileId String
+  movieId     String?
+  seriesId    String?
+  episodeId   String?
+  positionSec Float
+  durationSec Float
+  completed   Boolean  @default(false)
+  hidden      Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videoFile VideoFile @relation(fields: [videoFileId], references: [id], onDelete: Cascade)
+  movie     Movie?    @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  series    Series?   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  episode   Episode?  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoFileId])
+  @@index([userId, updatedAt])
+  @@index([seriesId])
+}
+
+model Playlist {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items PlaylistItem[]
+
+  @@unique([userId, name])
+}
+
+model PlaylistItem {
+  id         String   @id @default(cuid())
+  playlistId String
+  movieId    String?
+  seriesId   String?
+  episodeId  String?
+  position   Int
+  addedAt    DateTime @default(now())
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  movie    Movie?   @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  series   Series?  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  episode  Episode? @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@index([playlistId, position])
+}
+
+/// "My List".
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  movieId   String?
+  seriesId  String?
+  createdAt DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movie  Movie?  @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  series Series? @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, movieId])
+  @@unique([userId, seriesId])
+  @@index([userId, createdAt])
+}
+
+/// Key/value settings; values are JSON encoded.
+model ServerSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model MediaFolder {
+  id            String    @id @default(cuid())
+  path          String    @unique
+  label         String
+  /// movies | series | mixed
+  kind          String    @default("mixed")
+  enabled       Boolean   @default(true)
+  lastScannedAt DateTime?
+  createdAt     DateTime  @default(now())
+
+  videos   VideoFile[]
+  scanJobs ScanJob[]
+}
+
+model ScanJob {
+  id           String    @id @default(cuid())
+  folderId     String?
+  /// queued | running | completed | failed | cancelled
+  status       String    @default("queued")
+  full         Boolean   @default(false)
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  filesSeen    Int       @default(0)
+  filesAdded   Int       @default(0)
+  filesUpdated Int       @default(0)
+  filesRemoved Int       @default(0)
+  filesFailed  Int       @default(0)
+  message      String?
+  createdAt    DateTime  @default(now())
+
+  folder MediaFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([status])
+}
