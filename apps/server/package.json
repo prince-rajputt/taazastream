@@ -1,0 +1,58 @@
+{
+  "name": "@taazastream/server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "TaazaStream local streaming server (Fastify + SQLite + FFmpeg).",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/index.ts",
+    "build": "node build.mjs",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
+    "backup": "node dist/cli/backup.js",
+    "reset-admin": "node dist/cli/reset-admin.js"
+  },
+  "prisma": {
+    "schema": "../../prisma/schema.prisma"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/cors": "^11.3.0",
+    "@fastify/helmet": "^13.1.1",
+    "@fastify/multipart": "^10.1.2",
+    "@fastify/rate-limit": "^11.2.0",
+    "@fastify/static": "^10.1.5",
+    "@prisma/client": "~6.19.3",
+    "@supabase/supabase-js": "^2.117.2",
+    "@taazastream/shared": "workspace:*",
+    "bonjour-service": "^1.4.4",
+    "dotenv": "^17.2.3",
+    "fastify": "^5.12.5",
+    "multicast-dns": "^7.2.5",
+    "pino": "^10.4.0",
+    "prisma": "~6.19.3",
+    "qrcode": "^1.5.4",
+    "zod": "^3.25.76"
+  },
+  "optionalDependencies": {
+    "ffmpeg-static": "^5.3.0",
+    "ffprobe-static": "^3.1.0"
+  },
+  "devDependencies": {
+    "@taazastream/config": "workspace:*",
+    "@types/multicast-dns": "^7.2.4",
+    "@types/node": "^24.19.1",
+    "@types/qrcode": "^1.5.6",
+    "esbuild": "^0.25.0",
+    "pino-pretty": "^13.2.0",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9.3",
+    "vitest": "^3.2.7"
+  }
+}
