@@ -8,6 +8,7 @@ import { MovieDetailPage, SeriesDetailPage } from './pages/Detail';
 import HomePage from './pages/Home';
 import ProfilesPage, { ConnectPage } from './pages/Profiles';
 import SearchPage, { MyListPage } from './pages/Search';
+import { GalleryPage, PdfsPage } from './pages/Shared';
 import { useProfiles } from './lib/queries';
 import { looksLikeTv, usePrefs } from './store/prefs';
 
@@ -96,6 +97,8 @@ export default function App() {
           <Route path="series/:id" element={<SeriesDetailPage />} />
           <Route path="search" element={<SearchPage />} />
           <Route path="my-list" element={<MyListPage />} />
+          <Route path="pdfs" element={<PdfsPage />} />
+          <Route path="gallery" element={<GalleryPage />} />
           <Route path="connect" element={<ConnectPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>

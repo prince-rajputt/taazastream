@@ -462,6 +462,24 @@ export interface AdminUser {
   role: 'ADMIN' | 'VIEWER';
 }
 
+/** Files the admin shares with every device on the LAN (PDFs and gallery images). */
+export type SharedKind = 'pdf' | 'image';
+
+export interface SharedFile {
+  id: string;
+  kind: SharedKind;
+  /** Original file name as uploaded (display only). */
+  name: string;
+  sizeBytes: number;
+  uploadedAt: string;
+  /** Inline view URL. */
+  url: string;
+  /** Same file with `Content-Disposition: attachment`. */
+  downloadUrl: string;
+  /** Small WebP/JPEG preview for images; null for PDFs or when FFmpeg is unavailable. */
+  thumbUrl: string | null;
+}
+
 export interface AuthState {
   authenticated: boolean;
   user: AdminUser | null;

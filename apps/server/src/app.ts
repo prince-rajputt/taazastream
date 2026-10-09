@@ -23,6 +23,7 @@ import { registerCatalogRoutes } from './routes/catalog';
 import { registerHealthRoutes } from './routes/health';
 import { registerPlaybackRoutes } from './routes/playback';
 import { registerProfileRoutes } from './routes/profiles';
+import { registerSharedRoutes } from './routes/shared';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -35,7 +36,7 @@ export const ADMIN_COOKIE = 'ts_admin';
 export const CSRF_HEADER = 'x-taazastream';
 
 /** Paths that legitimately generate many requests per second while playing. */
-const MEDIA_PATH = /^\/api\/(stream|hls|images|subtitles)\//;
+const MEDIA_PATH = /^\/api\/(stream|hls|images|subtitles|shared-files)\//;
 
 export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   const app = Fastify({
@@ -207,6 +208,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
     registerProfileRoutes(api, ctx);
     registerCatalogRoutes(api, ctx);
     registerPlaybackRoutes(api, ctx);
+    registerSharedRoutes(api, ctx);
     registerAdminRoutes(api, ctx);
   });
 

@@ -12,6 +12,7 @@ import { Discovery } from './core/discovery';
 import { FfmpegTools } from './core/ffmpeg';
 import { LocalImageServer } from './core/images';
 import { isForbiddenMediaRoot } from './core/paths';
+import { LocalSharedFiles } from './core/shared-files';
 import { LocalMediaScanner } from './core/scanner/scanner';
 import { SearchService } from './core/search';
 import { LocalSettings } from './core/settings';
@@ -39,6 +40,7 @@ export interface AppContext {
   auth: LocalAuth;
   ffmpeg: FfmpegTools;
   images: LocalImageServer;
+  sharedFiles: LocalSharedFiles;
   search: SearchService;
   scanner: LocalMediaScanner;
   tracker: StreamTracker;
@@ -76,6 +78,12 @@ export async function createContext(config: AppConfig, log: Logger): Promise<App
   });
 
   const images = new LocalImageServer(config.imagesDir, ffmpeg, log.child({ svc: 'images' }));
+  const sharedFiles = new LocalSharedFiles(
+    path.join(config.dataDir, 'shared'),
+    ffmpeg,
+    log.child({ svc: 'shared' }),
+  );
+  await sharedFiles.load();
   const search = new SearchService(database, log.child({ svc: 'search' }));
   const scanner = new LocalMediaScanner(
     db,
@@ -231,6 +239,7 @@ export async function createContext(config: AppConfig, log: Logger): Promise<App
     auth,
     ffmpeg,
     images,
+    sharedFiles,
     search,
     scanner,
     tracker,

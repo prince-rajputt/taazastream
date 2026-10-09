@@ -2,7 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Bookmark,
   Clapperboard,
+  FileText,
   Home,
+  Images,
   LayoutGrid,
   QrCode,
   Search,
@@ -24,6 +26,8 @@ const NAV = [
   { to: '/', label: 'Home', icon: Home, end: true },
   { to: '/movies', label: 'Movies', icon: Clapperboard },
   { to: '/series', label: 'Series', icon: Tv },
+  { to: '/pdfs', label: 'PDFs', icon: FileText },
+  { to: '/gallery', label: 'Gallery', icon: Images },
   { to: '/my-list', label: 'My List', icon: Bookmark },
 ];
 
@@ -64,6 +68,7 @@ function ProfileMenu() {
           </p>
           {[
             { to: '/profiles', label: 'Switch profile', icon: Users, onClick: clear },
+            { to: '/browse', label: 'Browse genres', icon: LayoutGrid },
             { to: '/connect', label: 'Connect a device', icon: QrCode },
             { to: '/admin', label: 'Admin dashboard', icon: Settings2 },
           ].map((item) => (
@@ -152,7 +157,7 @@ export function Layout() {
                 to={n.to}
                 end={n.end}
                 className={({ isActive }) =>
-                  `rounded-full px-3.5 py-1.5 text-sm font-medium transition ${isActive ? 'bg-white/12 text-white' : 'text-white/70 hover:text-white'}`
+                  `rounded-full px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition ${isActive ? 'bg-white/12 text-white' : 'text-white/70 hover:text-white'}`
                 }
               >
                 {n.label}
@@ -160,14 +165,15 @@ export function Layout() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-2 md:gap-3">
-            <div className="hidden w-64 md:block lg:w-80">
+            {/* Six nav links + a search box don't fit on tablets: use the search toggle there. */}
+            <div className="hidden w-64 lg:block xl:w-80">
               <SearchBox key={location.pathname} />
             </div>
             <button
               type="button"
               aria-label="Search"
               onClick={() => setMobileSearch((s) => !s)}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-white/85 hover:bg-white/10 md:hidden"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-white/85 hover:bg-white/10 lg:hidden"
             >
               <Search className="h-5 w-5" />
             </button>
@@ -175,7 +181,7 @@ export function Layout() {
           </div>
         </div>
         {mobileSearch && (
-          <div className="page-x pb-3 md:hidden">
+          <div className="page-x pb-3 lg:hidden">
             <SearchBox autoFocus onDone={() => setMobileSearch(false)} />
           </div>
         )}
@@ -200,12 +206,12 @@ export function Layout() {
         className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-ink/92 backdrop-blur-xl md:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <div className="grid h-[4.25rem] grid-cols-5">
-          {[...NAV, { to: '/browse', label: 'Genres', icon: LayoutGrid }].map((n) => (
+        <div className="grid h-[4.25rem] grid-cols-6">
+          {NAV.map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
-              end={'end' in n ? n.end : false}
+              end={n.end}
               className={({ isActive }) =>
                 `flex flex-col items-center justify-center gap-1 text-[0.68rem] font-medium ${isActive ? 'text-white' : 'text-white/55'}`
               }

@@ -1,4 +1,5 @@
 import type {
+  AuthState,
   ContinueWatchingItem,
   GenreInfo,
   HomeFeed,
@@ -8,6 +9,8 @@ import type {
   SearchResult,
   SearchSuggestion,
   SeriesDetail,
+  SharedFile,
+  SharedKind,
   TitleCard,
 } from '@taazastream/shared';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -166,5 +169,47 @@ export function useRemoveContinue() {
       void qc.invalidateQueries({ queryKey: ['home'] });
       void qc.invalidateQueries({ queryKey: ['continue'] });
     },
+  });
+}
+
+/* ------------------------------ Shared PDFs & gallery ------------------------------ */
+
+export function useSharedFiles(kind: SharedKind) {
+  return useQuery({
+    queryKey: ['shared', kind],
+    queryFn: () => api.get<SharedFile[]>(`/api/shared/${kind}`),
+    // Other devices pick up newly shared files without a manual refresh.
+    refetchInterval: 30_000,
+  });
+}
+
+/** Admin session state (same cache key as the admin app, so signing in there shows here). */
+export function useAdminSignedIn() {
+  const { data } = useQuery({
+    queryKey: ['auth'],
+    queryFn: () => api.get<AuthState>('/api/auth/state'),
+    staleTime: 30_000,
+  });
+  return !!data?.authenticated;
+}
+
+export function useUploadShared(kind: SharedKind) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (files: File[]) => {
+      const form = new FormData();
+      for (const f of files) form.append('file', f, f.name);
+      return api.upload<SharedFile[]>(`/api/admin/shared/${kind}`, form);
+    },
+    // Also refresh after a partial failure: earlier files in the batch may have been saved.
+    onSettled: () => void qc.invalidateQueries({ queryKey: ['shared', kind] }),
+  });
+}
+
+export function useDeleteShared(kind: SharedKind) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/api/admin/shared-files/${id}`),
+    onSettled: () => void qc.invalidateQueries({ queryKey: ['shared', kind] }),
   });
 }
