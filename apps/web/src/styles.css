@@ -182,6 +182,8 @@
 .row-track > * {
   /* Fractional --per leaves a peek of the next card, hinting that the row scrolls. */
   flex: 0 0 calc((100% - (var(--gap) * (var(--per) - 1))) / var(--per));
+  /* Without this a long (nowrap/truncated) title widens its card past the flex-basis. */
+  min-width: 0;
 }
 .row-track[data-variant='landscape'],
 .row-track[data-variant='continue'] {

@@ -6,7 +6,7 @@ import { useToggleMyList } from '../lib/queries';
 import { Artwork } from './Artwork';
 import { hrefFor } from './TitleCard';
 
-const ROTATE_MS = 9000;
+const ROTATE_MS = 5000;
 
 /** Large cinematic hero with a slow crossfade between featured titles. */
 export function Hero({ items }: { items: TitleCard[] }) {
@@ -16,11 +16,12 @@ export function Hero({ items }: { items: TitleCard[] }) {
   const toggle = useToggleMyList();
   const item = items[index % Math.max(items.length, 1)];
 
+  // Restarts on every slide change, so picking a dot gives that slide a full ROTATE_MS.
   useEffect(() => {
     if (items.length < 2 || paused) return;
-    const t = setInterval(() => setIndex((i) => (i + 1) % items.length), ROTATE_MS);
-    return () => clearInterval(t);
-  }, [items.length, paused]);
+    const t = setTimeout(() => setIndex((i) => (i + 1) % items.length), ROTATE_MS);
+    return () => clearTimeout(t);
+  }, [index, items.length, paused]);
 
   if (!item) return null;
 
@@ -41,9 +42,9 @@ export function Hero({ items }: { items: TitleCard[] }) {
       className="relative h-[74svh] min-h-[440px] w-full overflow-hidden md:h-[88svh] md:max-h-[980px]"
       aria-roledescription="carousel"
       aria-label="Featured titles"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
+      // Pause only for keyboard/remote focus; the hero fills most of the screen, so a
+      // hover pause meant it almost never rotated on desktop.
+      onFocus={(e) => setPaused(e.target.matches(':focus-visible'))}
       onBlur={() => setPaused(false)}
     >
       {items.map((it, i) => (
@@ -57,7 +58,7 @@ export function Hero({ items }: { items: TitleCard[] }) {
             alt=""
             accent={it.accent}
             priority={i === 0}
-            className={`h-full w-full ${i === index ? 'scale-105' : 'scale-100'} transition-transform duration-[9000ms] ease-linear`}
+            className={`h-full w-full ${i === index ? 'scale-105' : 'scale-100'} transition-transform duration-[5000ms] ease-linear`}
           />
         </div>
       ))}

@@ -42,7 +42,7 @@ function ProgressBar({ percent, className = '' }: { percent: number; className?:
 /** Portrait (2:3) card used for most rows and grids. */
 export function PosterCard({ item }: { item: Card }) {
   return (
-    <div className="group relative">
+    <div className="group relative min-w-0">
       <Link
         to={hrefFor(item)}
         className="block rounded-[var(--radius-card)] transition-transform duration-300 ease-[var(--ease-out-soft)] focus-visible:scale-[1.04] md:group-hover:scale-[1.04]"
