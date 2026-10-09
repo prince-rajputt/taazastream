@@ -47,6 +47,9 @@ export const watchProgressSchema = z.object({
   completed: z.boolean().optional(),
   /** Client generated id grouping the progress events of one playback session. */
   sessionId: z.string().max(64).optional(),
+  /** Player state; doubles as a heartbeat so the admin sees who is watching. */
+  state: z.enum(['playing', 'paused', 'stopped']).optional(),
+  mode: z.enum(['direct', 'remux', 'transcode']).optional(),
 });
 
 export const capabilitiesSchema = z.object({

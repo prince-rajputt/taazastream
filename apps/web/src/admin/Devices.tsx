@@ -45,14 +45,24 @@ export default function DevicesPage() {
               <Card key={d.id}>
                 <div className="flex items-start gap-4">
                   <span
-                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${d.status === 'Streaming' ? 'bg-gradient-brand text-white' : 'bg-white/8 text-white/70'}`}
+                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${d.status === 'Streaming' ? 'bg-gradient-brand text-white' : d.status === 'Paused' ? 'bg-brand-500/15 text-brand-300' : 'bg-white/8 text-white/70'}`}
                   >
                     <Icon className="h-6 w-6" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-medium">{d.type}</p>
-                      <Badge tone={d.status === 'Streaming' ? 'ok' : 'neutral'}>{d.status}</Badge>
+                      <Badge
+                        tone={
+                          d.status === 'Streaming'
+                            ? 'ok'
+                            : d.status === 'Paused'
+                              ? 'warn'
+                              : 'neutral'
+                        }
+                      >
+                        {d.status}
+                      </Badge>
                     </div>
                     <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
                       <dt className="text-faint">IP</dt>
@@ -62,7 +72,12 @@ export default function DevicesPage() {
                         {d.browser} on {d.os}
                       </dd>
                       <dt className="text-faint">Current video</dt>
-                      <dd className="truncate">{d.currentVideo ?? '—'}</dd>
+                      <dd className="truncate" title={d.currentVideo ?? undefined}>
+                        {d.currentVideo ?? '—'}
+                        {d.activeStreams > 1 && (
+                          <span className="text-muted"> +{d.activeStreams - 1} more</span>
+                        )}
+                      </dd>
                       <dt className="text-faint">Bandwidth</dt>
                       <dd className="font-mono">{formatBitrate(d.bandwidthBps)}</dd>
                       <dt className="text-faint">Data sent</dt>

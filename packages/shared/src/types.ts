@@ -354,8 +354,10 @@ export interface DeviceInfo {
   type: DeviceType;
   browser: string;
   os: string;
-  status: 'Streaming' | 'Idle';
+  status: 'Streaming' | 'Paused' | 'Idle';
   currentVideo: string | null;
+  /** Videos open on this device right now (several tabs/windows count separately). */
+  activeStreams: number;
   mode: PlaybackMode | null;
   bandwidthBps: number;
   bytesSent: number;
@@ -371,6 +373,7 @@ export interface ActiveStream {
   deviceType: DeviceType;
   mode: PlaybackMode;
   quality: QualityId;
+  state: 'playing' | 'paused';
   startedAt: string;
   lastActivity: string;
   bytesSent: number;

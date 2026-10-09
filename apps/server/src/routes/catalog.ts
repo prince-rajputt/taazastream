@@ -282,6 +282,41 @@ export function registerCatalogRoutes(app: FastifyInstance, ctx: AppContext) {
   app.post('/api/watch-progress', async (request) => {
     const body = parse(watchProgressSchema, request.body);
     const immediate = (request.query as { flush?: string } | undefined)?.flush === '1';
+    const ua = request.headers['user-agent'];
+    const state = body.state ?? (body.completed ? 'stopped' : 'playing');
+    if (!ctx.tracker.heartbeat(request.ip, ua, body.videoId, state) && state !== 'stopped') {
+      // The browser is playing bytes it cached earlier, so no stream request reached us.
+      const v = await db.videoFile.findUnique({
+        where: { id: body.videoId },
+        select: {
+          fileName: true,
+          movie: { select: { title: true } },
+          episode: {
+            select: {
+              number: true,
+              title: true,
+              season: { select: { number: true } },
+              series: { select: { title: true } },
+            },
+          },
+        },
+      });
+      if (v) {
+        const e = v.episode;
+        ctx.tracker.record({
+          ip: request.ip,
+          ua,
+          videoId: body.videoId,
+          title: e
+            ? `${e.series.title} — S${e.season.number} E${e.number} · ${e.title}`
+            : (v.movie?.title ?? v.fileName),
+          mode: body.mode ?? 'direct',
+          quality: 'original',
+          bytes: 0,
+        });
+        ctx.tracker.heartbeat(request.ip, ua, body.videoId, state);
+      }
+    }
     const result = await ctx.progress.record(request.profileId, body, immediate);
     return ok(result);
   });

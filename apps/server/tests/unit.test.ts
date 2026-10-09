@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hashPassword, verifyPassword } from '../src/core/auth';
 import { isForbiddenMediaRoot, isInside, joinInside, safeFileName } from '../src/core/paths';
 import { parseProbe } from '../src/core/probe';
@@ -14,7 +14,7 @@ import { parseJsonSidecar, parseNfo } from '../src/core/scanner/sidecar';
 import { toFtsQuery } from '../src/core/search';
 import { parseVariantId, isSegmentName, variantId } from '../src/core/streaming/hls';
 import { parseRange, videoMimeType } from '../src/core/streaming/range';
-import { classifyUserAgent } from '../src/core/streaming/tracker';
+import { classifyUserAgent, StreamTracker } from '../src/core/streaming/tracker';
 import { srtToVtt } from '../src/core/subtitles';
 import { isPrivateAddress } from '../src/core/system';
 
@@ -298,5 +298,95 @@ describe('misc', () => {
     expect(isPrivateAddress('192.168.1.5')).toBe(true);
     expect(isPrivateAddress('::ffff:10.0.0.2')).toBe(true);
     expect(isPrivateAddress('8.8.8.8')).toBe(false);
+  });
+});
+
+describe('stream tracker (admin Devices page)', () => {
+  const PC = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120';
+  const PHONE = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) Mobile Chrome/120';
+  const play = (t: StreamTracker, ip: string, ua: string, videoId: string, title = videoId) =>
+    t.record({ ip, ua, videoId, title, mode: 'direct', quality: 'original', bytes: 1_000 });
+  const statusOf = (t: StreamTracker, ip: string) => t.listDevices().find((d) => d.ip === ip);
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T12:00:00Z'));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('keeps a fully buffered video "Streaming" while the player sends heartbeats', () => {
+    const t = new StreamTracker();
+    play(t, '192.168.29.6', PC, 'v1');
+    // The browser downloaded the whole short film; only heartbeats arrive from now on.
+    for (let i = 0; i < 6; i++) {
+      vi.advanceTimersByTime(10_000);
+      t.heartbeat('192.168.29.6', PC, 'v1', 'playing');
+    }
+    expect(statusOf(t, '192.168.29.6')?.status).toBe('Streaming');
+    expect(t.activeCount()).toBe(1);
+  });
+
+  it('shows several devices streaming at the same time', () => {
+    const t = new StreamTracker();
+    play(t, '192.168.29.6', PC, 'v1');
+    play(t, '192.168.29.198', PHONE, 'v2');
+    play(t, '127.0.0.1', PC, 'v3');
+    vi.advanceTimersByTime(25_000); // no traffic for longer than the old 20 s window
+    for (const [ip, ua, v] of [
+      ['192.168.29.6', PC, 'v1'],
+      ['192.168.29.198', PHONE, 'v2'],
+      ['127.0.0.1', PC, 'v3'],
+    ] as const)
+      t.heartbeat(ip, ua, v, 'playing');
+    const devices = t.listDevices();
+    expect(devices).toHaveLength(3);
+    expect(devices.every((d) => d.status === 'Streaming')).toBe(true);
+    expect(t.connectedCount()).toBe(3);
+  });
+
+  it('reports pause, keeps paused devices listed, and frees the stream slot', () => {
+    const t = new StreamTracker();
+    play(t, '192.168.29.6', PC, 'v1');
+    t.heartbeat('192.168.29.6', PC, 'v1', 'paused');
+    vi.advanceTimersByTime(5 * 60_000); // longer than the 3 min "connected" window
+    expect(statusOf(t, '192.168.29.6')?.status).toBe('Paused');
+    expect(t.activeCount()).toBe(0);
+    expect(t.isActive(StreamTracker.key('192.168.29.6', PC, 'v1'))).toBe(true);
+  });
+
+  it('goes idle when the player stops or its heartbeat goes quiet', () => {
+    const t = new StreamTracker();
+    play(t, '192.168.29.6', PC, 'v1');
+    play(t, '192.168.29.198', PHONE, 'v2');
+    t.heartbeat('192.168.29.6', PC, 'v1', 'stopped');
+    t.heartbeat('192.168.29.198', PHONE, 'v2', 'playing');
+    expect(statusOf(t, '192.168.29.6')?.status).toBe('Idle');
+    vi.advanceTimersByTime(31_000); // phone lost Wi-Fi: no heartbeat, no traffic
+    expect(statusOf(t, '192.168.29.198')?.status).toBe('Idle');
+  });
+
+  it('falls back to traffic for players without heartbeats (e.g. VLC)', () => {
+    const t = new StreamTracker();
+    play(t, '192.168.29.32', 'VLC/3.0.20 LibVLC/3.0.20', 'v1');
+    vi.advanceTimersByTime(15_000);
+    expect(statusOf(t, '192.168.29.32')?.status).toBe('Streaming');
+    vi.advanceTimersByTime(10_000);
+    expect(statusOf(t, '192.168.29.32')?.status).toBe('Idle');
+  });
+
+  it('reports unknown streams so a cached re-watch can be registered', () => {
+    const t = new StreamTracker();
+    expect(t.heartbeat('192.168.29.6', PC, 'v1', 'playing')).toBe(false);
+    play(t, '192.168.29.6', PC, 'v1');
+    expect(t.heartbeat('192.168.29.6', PC, 'v1', 'playing')).toBe(true);
+  });
+
+  it('counts two videos on one device and treats ::ffff: addresses as the same device', () => {
+    const t = new StreamTracker();
+    play(t, '::ffff:192.168.29.6', PC, 'v1', 'First');
+    play(t, '192.168.29.6', PC, 'v2', 'Second');
+    const devices = t.listDevices();
+    expect(devices).toHaveLength(1);
+    expect(devices[0]?.activeStreams).toBe(2);
   });
 });

@@ -198,7 +198,7 @@ function Player({
 
   /* ---------------------------- progress reporting ---------------------------- */
   const report = useCallback(
-    (opts: { flush?: boolean; completed?: boolean; unload?: boolean } = {}) => {
+    (opts: { flush?: boolean; completed?: boolean; unload?: boolean; stopped?: boolean } = {}) => {
       const v = video.current;
       if (!v || !Number.isFinite(v.currentTime)) return;
       const body = {
@@ -207,13 +207,21 @@ function Player({
         durationSec: Number.isFinite(v.duration) && v.duration > 0 ? v.duration : info.durationSec,
         completed: opts.completed,
         sessionId: session.current,
+        // Also the admin's "who is watching" heartbeat.
+        state:
+          opts.stopped || opts.completed || v.ended
+            ? ('stopped' as const)
+            : v.paused
+              ? ('paused' as const)
+              : ('playing' as const),
+        mode: info.mode,
       };
       lastReport.current = Date.now();
       const url = `/api/watch-progress${opts.flush || opts.unload ? '?flush=1' : ''}`;
       if (opts.unload) beacon(url, body);
       else void api.post(url, body).catch(() => undefined);
     },
-    [info.videoId, info.durationSec],
+    [info.videoId, info.durationSec, info.mode],
   );
 
   /* ---------------------------- source attachment ---------------------------- */
@@ -321,6 +329,7 @@ function Player({
     const onPlay = () => {
       setPlaying(true);
       setNeedsGesture(false);
+      report(); // resume shows up in the admin right away, not after the next 10 s tick
     };
     const onPause = () => {
       setPlaying(false);
@@ -387,13 +396,13 @@ function Player({
     const onHide = () => {
       if (document.visibilityState === 'hidden') report({ unload: true });
     };
-    const onPageHide = () => report({ unload: true });
+    const onPageHide = () => report({ unload: true, stopped: true });
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', onPageHide);
     return () => {
       document.removeEventListener('visibilitychange', onHide);
       window.removeEventListener('pagehide', onPageHide);
-      report({ unload: true });
+      report({ unload: true, stopped: true });
     };
   }, [report]);
 

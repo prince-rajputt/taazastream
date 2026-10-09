@@ -7,8 +7,18 @@ import type {
   QualityId,
 } from '@taazastream/shared';
 
-/** A stream counts as active while it saw traffic within this window. */
+/**
+ * Fallback for players that send no heartbeat (e.g. VLC on the direct URL): a stream counts
+ * as playing while it saw traffic within this window. Traffic alone is not enough for the web
+ * player — browsers buffer short videos completely, then stay silent while still playing.
+ */
 const ACTIVE_WINDOW_MS = 20_000;
+/** The web player reports every 10 s while playing; allow a couple of missed reports. */
+const PLAYER_WINDOW_MS = 30_000;
+/** A paused video stays listed this long after its last report. */
+const PAUSED_WINDOW_MS = 10 * 60_000;
+/** Ended streams are kept this long so a late heartbeat can revive them. */
+const FORGET_MS = 15 * 60_000;
 /** A device counts as connected while it made any request within this window. */
 const DEVICE_WINDOW_MS = 3 * 60_000;
 const BANDWIDTH_WINDOW_MS = 5_000;
@@ -54,9 +64,17 @@ interface StreamState {
   mode: PlaybackMode;
   quality: QualityId;
   startedAt: number;
+  /** Last byte/segment/playlist request. */
   lastActivity: number;
+  /** Last player heartbeat (0 = this player never sent one). */
+  playerSeen: number;
+  playerState: PlayerState;
+  /** Whether a 'start' event has been emitted without a matching 'stop'. */
+  live: boolean;
   meter: RateMeter;
 }
+
+type PlayerState = 'playing' | 'paused' | 'stopped';
 
 interface DeviceState {
   id: string;
@@ -160,15 +178,35 @@ export class StreamTracker {
     this.listeners.add(fn);
   }
 
+  private emit(event: 'start' | 'stop', s: StreamState) {
+    s.live = event === 'start';
+    for (const fn of this.listeners) fn(event, s);
+  }
+
+  /**
+   * What the viewer is doing right now. The player's own heartbeat wins; raw traffic only
+   * decides for players that never send one, or when traffic resumed after the last report.
+   */
+  private stateOf(s: StreamState, now: number): 'playing' | 'paused' | null {
+    const traffic = now - s.lastActivity <= ACTIVE_WINDOW_MS;
+    if (!s.playerSeen) return traffic ? 'playing' : null;
+    const age = now - s.playerSeen;
+    // Browsers keep buffering while paused, so traffic does not override a pause.
+    if (s.playerState === 'paused' && age <= PAUSED_WINDOW_MS) return 'paused';
+    if (s.playerState === 'playing' && age <= PLAYER_WINDOW_MS) return 'playing';
+    // Stopped, or the heartbeat went quiet (tab crashed, Wi-Fi lost): only newer traffic counts.
+    return traffic && s.lastActivity > s.playerSeen ? 'playing' : null;
+  }
+
   private tick() {
     const now = Date.now();
     this.history.push({ t: now, bps: this.global.rate(now) });
     if (this.history.length > 90) this.history.shift(); // ~3 minutes
     for (const [key, s] of this.streams) {
-      if (now - s.lastActivity > ACTIVE_WINDOW_MS) {
+      const state = this.stateOf(s, now);
+      if (!state && s.live) this.emit('stop', s);
+      if (!state && now - Math.max(s.lastActivity, s.playerSeen) > FORGET_MS)
         this.streams.delete(key);
-        for (const fn of this.listeners) fn('stop', s);
-      }
     }
     for (const [id, d] of this.devices) {
       if (now - d.lastSeen > DEVICE_WINDOW_MS * 10) this.devices.delete(id);
@@ -177,7 +215,7 @@ export class StreamTracker {
 
   deviceIdFor(ip: string, ua: string | undefined): string {
     return createHash('sha1')
-      .update(`${ip}|${ua ?? ''}`)
+      .update(`${normalizeIp(ip)}|${ua ?? ''}`)
       .digest('hex')
       .slice(0, 16);
   }
@@ -189,27 +227,35 @@ export class StreamTracker {
     if (d) d.lastSeen = now;
     else {
       const c = classifyUserAgent(ua);
-      this.devices.set(id, { id, ip, ...c, firstSeen: now, lastSeen: now, meter: new RateMeter() });
+      this.devices.set(id, {
+        id,
+        ip: normalizeIp(ip),
+        ...c,
+        firstSeen: now,
+        lastSeen: now,
+        meter: new RateMeter(),
+      });
     }
     return id;
   }
 
-  /** Number of currently active streams, optionally excluding one key (for limit checks). */
+  /** Streams that are playing right now (paused ones don't hold a slot), for limit checks. */
   activeCount(excludeKey?: string): number {
     const now = Date.now();
     let n = 0;
     for (const [key, s] of this.streams)
-      if (key !== excludeKey && now - s.lastActivity <= ACTIVE_WINDOW_MS) n++;
+      if (key !== excludeKey && this.stateOf(s, now) === 'playing') n++;
     return n;
   }
 
+  /** True for a stream that is playing or paused: resuming it never hits the stream limit. */
   isActive(key: string): boolean {
     const s = this.streams.get(key);
-    return !!s && Date.now() - s.lastActivity <= ACTIVE_WINDOW_MS;
+    return !!s && this.stateOf(s, Date.now()) !== null;
   }
 
   static key(ip: string, ua: string | undefined, videoId: string): string {
-    return `${ip}|${createHash('sha1')
+    return `${normalizeIp(ip)}|${createHash('sha1')
       .update(ua ?? '')
       .digest('hex')
       .slice(0, 8)}|${videoId}`;
@@ -235,20 +281,23 @@ export class StreamTracker {
         key,
         videoId: opts.videoId,
         title: opts.title,
-        ip: opts.ip,
+        ip: normalizeIp(opts.ip),
         deviceId,
         mode: opts.mode,
         quality: opts.quality,
         startedAt: now,
         lastActivity: now,
+        playerSeen: 0,
+        playerState: 'playing',
+        live: false,
         meter: new RateMeter(),
       };
       this.streams.set(key, s);
-      for (const fn of this.listeners) fn('start', s);
     }
     s.lastActivity = now;
     s.mode = opts.mode;
     s.quality = opts.quality;
+    if (!s.live && this.stateOf(s, now)) this.emit('start', s);
     if (opts.bytes > 0) {
       s.meter.add(opts.bytes, now);
       this.devices.get(deviceId)?.meter.add(opts.bytes, now);
@@ -269,11 +318,32 @@ export class StreamTracker {
     this.global.add(bytes, now);
   }
 
+  /**
+   * Heartbeat from the web player (sent with watch progress every ~10 s, and on pause/stop).
+   * Keeps a stream listed while the browser plays from its buffer without fetching anything.
+   * Returns false when the stream is unknown; the caller then registers it with `record`.
+   */
+  heartbeat(ip: string, ua: string | undefined, videoId: string, state: PlayerState): boolean {
+    const s = this.streams.get(StreamTracker.key(ip, ua, videoId));
+    // Unknown: the browser played from its HTTP cache (a re-watch) or the server restarted.
+    if (!s) return false;
+    const now = Date.now();
+    s.playerSeen = now;
+    s.playerState = state;
+    this.touchDevice(ip, ua);
+    const active = this.stateOf(s, now);
+    if (active && !s.live) this.emit('start', s);
+    else if (!active && s.live) this.emit('stop', s);
+    return true;
+  }
+
   listStreams(): ActiveStream[] {
     const now = Date.now();
-    return [...this.streams.values()]
-      .filter((s) => now - s.lastActivity <= ACTIVE_WINDOW_MS)
-      .map((s) => ({
+    const out: ActiveStream[] = [];
+    for (const s of this.streams.values()) {
+      const state = this.stateOf(s, now);
+      if (!state) continue;
+      out.push({
         id: s.id,
         videoId: s.videoId,
         title: s.title,
@@ -281,44 +351,76 @@ export class StreamTracker {
         deviceType: this.devices.get(s.deviceId)?.type ?? 'Unknown',
         mode: s.mode,
         quality: s.quality,
+        state,
         startedAt: new Date(s.startedAt).toISOString(),
-        lastActivity: new Date(s.lastActivity).toISOString(),
+        lastActivity: new Date(Math.max(s.lastActivity, s.playerSeen)).toISOString(),
         bytesSent: s.meter.total,
         bandwidthBps: s.meter.rate(now),
-      }));
+      });
+    }
+    return out;
+  }
+
+  /** Live streams per device: playing ones first, then the most recently active. */
+  private streamsByDevice(now: number) {
+    const map = new Map<string, { s: StreamState; state: 'playing' | 'paused' }[]>();
+    for (const s of this.streams.values()) {
+      const state = this.stateOf(s, now);
+      if (!state) continue;
+      const list = map.get(s.deviceId) ?? [];
+      list.push({ s, state });
+      map.set(s.deviceId, list);
+    }
+    const seen = (x: StreamState) => Math.max(x.lastActivity, x.playerSeen);
+    for (const list of map.values())
+      list.sort(
+        (a, b) =>
+          (a.state === 'playing' ? 0 : 1) - (b.state === 'playing' ? 0 : 1) ||
+          seen(b.s) - seen(a.s),
+      );
+    return map;
   }
 
   listDevices(): DeviceInfo[] {
     const now = Date.now();
-    const streams = [...this.streams.values()].filter(
-      (s) => now - s.lastActivity <= ACTIVE_WINDOW_MS,
+    const byDevice = this.streamsByDevice(now);
+    return (
+      [...this.devices.values()]
+        // A device with a paused video stays listed even if it made no request for a while.
+        .filter((d) => now - d.lastSeen <= DEVICE_WINDOW_MS || byDevice.has(d.id))
+        .map((d): DeviceInfo => {
+          const list = byDevice.get(d.id) ?? [];
+          const top = list[0];
+          return {
+            id: d.id,
+            ip: d.ip,
+            type: d.type,
+            browser: d.browser,
+            os: d.os,
+            status: !top ? 'Idle' : top.state === 'playing' ? 'Streaming' : 'Paused',
+            currentVideo: top?.s.title ?? null,
+            activeStreams: list.length,
+            mode: top?.s.mode ?? null,
+            bandwidthBps: d.meter.rate(now),
+            bytesSent: d.meter.total,
+            firstSeen: new Date(d.firstSeen).toISOString(),
+            lastSeen: new Date(d.lastSeen).toISOString(),
+          };
+        })
+        // Streaming devices first, then paused, then idle; newest activity first within each.
+        .sort(
+          (a, b) =>
+            STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || b.lastSeen.localeCompare(a.lastSeen),
+        )
     );
-    return [...this.devices.values()]
-      .filter((d) => now - d.lastSeen <= DEVICE_WINDOW_MS)
-      .sort((a, b) => b.lastSeen - a.lastSeen)
-      .map((d) => {
-        const s = streams.find((x) => x.deviceId === d.id);
-        return {
-          id: d.id,
-          ip: d.ip,
-          type: d.type,
-          browser: d.browser,
-          os: d.os,
-          status: s ? 'Streaming' : 'Idle',
-          currentVideo: s?.title ?? null,
-          mode: s?.mode ?? null,
-          bandwidthBps: d.meter.rate(now),
-          bytesSent: d.meter.total,
-          firstSeen: new Date(d.firstSeen).toISOString(),
-          lastSeen: new Date(d.lastSeen).toISOString(),
-        };
-      });
   }
 
   connectedCount(): number {
     const now = Date.now();
+    const byDevice = this.streamsByDevice(now);
     let n = 0;
-    for (const d of this.devices.values()) if (now - d.lastSeen <= DEVICE_WINDOW_MS) n++;
+    for (const d of this.devices.values())
+      if (now - d.lastSeen <= DEVICE_WINDOW_MS || byDevice.has(d.id)) n++;
     return n;
   }
 
@@ -329,4 +431,11 @@ export class StreamTracker {
       history: [...this.history],
     };
   }
+}
+
+const STATUS_ORDER: Record<DeviceInfo['status'], number> = { Streaming: 0, Paused: 1, Idle: 2 };
+
+/** `::ffff:192.168.1.5` and `192.168.1.5` are the same device. */
+function normalizeIp(ip: string): string {
+  return ip.startsWith('::ffff:') ? ip.slice(7) : ip;
 }

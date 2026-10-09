@@ -148,7 +148,10 @@ function StreamsTable({ streams }: { streams: ActiveStream[] }) {
         <tbody>
           {streams.map((s) => (
             <tr key={s.id} className="border-t border-line">
-              <td className="max-w-56 truncate px-2 py-2.5">{s.title}</td>
+              <td className="max-w-56 truncate px-2 py-2.5">
+                {s.state === 'paused' && <span className="mr-1.5 text-xs text-warn">Paused ·</span>}
+                {s.title}
+              </td>
               <td className="px-2 py-2.5 text-muted">
                 {s.deviceType} · {s.ip}
               </td>
